@@ -1223,7 +1223,7 @@
           "lib/net5.0/SharpCompress.dll": {}
         }
       },
-      "SixLabors.ImageSharp/3.1.8": {
+      "SixLabors.ImageSharp/3.1.11": {
         "type": "package",
         "compile": {
           "lib/net6.0/SixLabors.ImageSharp.dll": {
@@ -4120,10 +4120,10 @@
         "sharpcompress.nuspec"
       ]
     },
-    "SixLabors.ImageSharp/3.1.8": {
-      "sha512": "8eJkROLGh6DBQLR666q2aOpAaean2puZaZ6Ur9YxoyGzjaZhv8OJSxtnDou54+OXMkXtLUdyQC0so47sOsqZjg==",
+    "SixLabors.ImageSharp/3.1.11": {
+      "sha512": "JfPLyigLthuE50yi6tMt7Amrenr/fA31t2CvJyhy/kQmfulIBAqo5T/YFUSRHtuYPXRSaUHygFeh6Qd933EoSw==",
       "type": "package",
-      "path": "sixlabors.imagesharp/3.1.8",
+      "path": "sixlabors.imagesharp/3.1.11",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -4132,7 +4132,7 @@
         "lib/net6.0/SixLabors.ImageSharp.dll",
         "lib/net6.0/SixLabors.ImageSharp.xml",
         "sixlabors.imagesharp.128.png",
-        "sixlabors.imagesharp.3.1.8.nupkg.sha512",
+        "sixlabors.imagesharp.3.1.11.nupkg.sha512",
         "sixlabors.imagesharp.nuspec"
       ]
     },
@@ -6018,7 +6018,7 @@
       "Microsoft.EntityFrameworkCore.SqlServer >= 9.0.4",
       "Minio >= 6.0.4",
       "MongoDB.Driver >= 3.5.0",
-      "SixLabors.ImageSharp >= 3.1.8",
+      "SixLabors.ImageSharp >= 3.1.11",
       "StackExchange.Redis >= 2.8.31",
       "System.Data.Common >= 4.3.0",
       "System.IdentityModel.Tokens.Jwt >= 8.7.0"
@@ -6112,7 +6112,7 @@
           },
           "SixLabors.ImageSharp": {
             "target": "Package",
-            "version": "[3.1.8, )"
+            "version": "[3.1.11, )"
           },
           "StackExchange.Redis": {
             "target": "Package",
@@ -6149,17 +6149,5 @@
         "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/9.0.200/PortableRuntimeIdentifierGraph.json"
       }
     }
-  },
-  "logs": [
-    {
-      "code": "NU1902",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "Package 'SixLabors.ImageSharp' 3.1.8 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-rxmq-m78w-7wmc",
-      "libraryId": "SixLabors.ImageSharp",
-      "targetGraphs": [
-        "net9.0"
-      ]
-    }
-  ]
+  }
 }

@@ -52,9 +52,6 @@ namespace Backend.Middleware
             // Để CHỈNH SỬA một exception: Chỉ cần sửa logic trong phương thức tương ứng (ví dụ: HandleValidationException).
             switch (exception)
             {
-                case CustomValidationException validationEx:
-                    HandleValidationException(problemDetails, validationEx);
-                    break;
                 case NotFoundException notFoundEx:
                     HandleNotFoundException(problemDetails, notFoundEx);
                     break;
@@ -118,18 +115,6 @@ namespace Backend.Middleware
             await context.Response.WriteAsync(JsonSerializer.Serialize(problemDetails, jsonOptions));
         }
 
-        // Xử lý Validation Exception
-        private void HandleValidationException(ProblemDetails problemDetails, CustomValidationException ex)
-        {
-            problemDetails.Status = StatusCodes.Status400BadRequest;
-            problemDetails.Title = "Validation Error";
-            problemDetails.Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1";
-            problemDetails.Detail = ex.Message;
-            if (ex.Errors.Count > 0)
-            {
-                problemDetails.Extensions["errors"] = ex.Errors;
-            }
-        }
 
         // Xử lý Not Found Exception
         private void HandleNotFoundException(ProblemDetails problemDetails, NotFoundException ex)

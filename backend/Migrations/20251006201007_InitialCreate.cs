@@ -17,7 +17,8 @@ namespace backend.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWID()"),
                     Username = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    PasswordHash = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false)
+                    PasswordHash = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Status = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -46,8 +47,9 @@ namespace backend.Migrations
                     DeliveryAddress = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     PhoneNumber = table.Column<string>(type: "nvarchar(15)", maxLength: 15, nullable: false),
                     HashPassword = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Status = table.Column<bool>(type: "bit", maxLength: 100, nullable: false),
-                    AvtKey = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false)
+                    Status = table.Column<bool>(type: "bit", nullable: false),
+                    AvtURL = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
+                    Email = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -225,10 +227,16 @@ namespace backend.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Administrator_Status",
+                table: "Administrators",
+                column: "Status");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Administrator_Username",
                 table: "Administrators",
                 column: "Username",
-                unique: true);
+                unique: true,
+                filter: "Status = 1");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Cart_CustomerId_ProductId_Option",
@@ -258,10 +266,15 @@ namespace backend.Migrations
                 column: "CustomerName");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Customer_Email",
+                table: "Customers",
+                column: "Email",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Customer_PhoneNumber",
                 table: "Customers",
-                column: "PhoneNumber",
-                unique: true);
+                column: "PhoneNumber");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Customer_Status",

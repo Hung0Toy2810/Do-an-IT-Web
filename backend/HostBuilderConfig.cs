@@ -2,7 +2,17 @@ using Microsoft.EntityFrameworkCore;
 using Minio;
 using StackExchange.Redis;
 using Microsoft.Extensions.Logging;
-using Backend.SQLDbContext; // 👈 thêm using này để nhận SQLServerDbContext
+using Backend.SQLDbContext;
+using Backend.Repository.AdministratorRepository;
+using Backend.Repository.CustomerRepository;
+using Backend.Repository.MinIO;
+using Backend.Service.AdministratorService;
+using Backend.Service.CustomerService;
+using Backend.Service.Password;
+using Backend.Service.Token;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace Backend 
 {
@@ -54,8 +64,60 @@ namespace Backend
                             .Build();
                     });
 
+                    // ===== JWT Authentication =====
+                    var jwtSecretKey = configuration["Jwt:SecretKey"];
+                    if (string.IsNullOrEmpty(jwtSecretKey))
+                    {
+                        // Sử dụng default key nếu không có trong config (KHÔNG NÊN dùng trong production)
+                        jwtSecretKey = "DefaultSecretKeyForDevelopmentOnlyMustBeAtLeast32Characters!";
+                        Console.WriteLine("⚠️  WARNING: Using default JWT SecretKey. Please configure Jwt:SecretKey in appsettings.json");
+                    }
+
+                    services.AddAuthentication(options =>
+                    {
+                        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                    })
+                    .AddJwtBearer(options =>
+                    {
+                        options.TokenValidationParameters = new TokenValidationParameters
+                        {
+                            ValidateIssuer = true,
+                            ValidateAudience = true,
+                            ValidateLifetime = true,
+                            ValidateIssuerSigningKey = true,
+                            ValidIssuer = configuration["Jwt:Issuer"] ?? "BackendAPI",
+                            ValidAudience = configuration["Jwt:Audience"] ?? "BackendUsers",
+                            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey)),
+                            ClockSkew = TimeSpan.Zero
+                        };
+                    });
+
+                    services.AddAuthorization();
+
                     // ===== Controllers =====
-                    services.AddControllers();
+                    services.AddControllers()
+                        .AddApplicationPart(typeof(HostBuilderConfig).Assembly)
+                        .AddControllersAsServices()
+                        .ConfigureApiBehaviorOptions(options =>
+                        {
+                            // Tự động trả về 400 Bad Request khi ModelState không hợp lệ
+                            options.InvalidModelStateResponseFactory = context =>
+                            {
+                                var errors = context.ModelState
+                                    .Where(e => e.Value?.Errors.Count > 0)
+                                    .ToDictionary(
+                                        e => e.Key,
+                                        e => e.Value?.Errors.Select(x => x.ErrorMessage).ToArray()
+                                    );
+
+                                return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(new
+                                {
+                                    Message = "Validation failed",
+                                    Errors = errors
+                                });
+                            };
+                        });
 
                     // ===== CORS =====
                     services.AddCors(options =>
@@ -75,32 +137,95 @@ namespace Backend
                         builder.SetMinimumLevel(LogLevel.Information);
                     });
 
-                    // ===== Đăng ký Service nội bộ =====
-                    // 👉 Thêm các service cho dự án tại đây
-                    // services.AddScoped<IProductService, ProductService>();
+                    // =============== Repository =================================
+                    services.AddScoped<IAdministratorRepository, AdministratorRepository>();
+                    services.AddScoped<ICustomerRepository, CustomerRepository>();
+                    services.AddScoped<IFileRepository, FileRepository>();
+
+                    // =============== Service ====================================
+                    services.AddScoped<IAdministratorService, AdministratorService>();
+                    services.AddScoped<ICustomerService, CustomerService>();
+                    services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
+                    services.AddScoped<IJwtTokenService, JwtTokenService>();
                 })
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.Configure(app =>
                     {
+                        // ===== Exception Handler =====
+                        app.UseExceptionHandler(errorApp =>
+                        {
+                            errorApp.Run(async context =>
+                            {
+                                context.Response.StatusCode = 500;
+                                context.Response.ContentType = "application/json";
+
+                                var exceptionHandlerFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+                                if (exceptionHandlerFeature != null)
+                                {
+                                    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+                                    logger.LogError(exceptionHandlerFeature.Error, "Unhandled exception occurred");
+
+                                    await context.Response.WriteAsJsonAsync(new
+                                    {
+                                        Message = "An error occurred processing your request.",
+                                        Detail = exceptionHandlerFeature.Error.Message
+                                    });
+                                }
+                            });
+                        });
+
                         app.UseRouting();
 
-                        // Log request headers
+                        // Middleware để log request
                         app.Use(async (context, next) =>
                         {
-                            Console.WriteLine("Request Headers: " + string.Join(", ",
-                                context.Request.Headers.Select(h => $"{h.Key}: {h.Value}")));
+                            Console.WriteLine($"Request: {context.Request.Method} {context.Request.Path}");
                             await next();
+                            Console.WriteLine($"Response: {context.Response.StatusCode}");
                         });
 
                         app.UseCors("AllowAll");
-
                         app.UseAuthentication();
                         app.UseAuthorization();
 
                         app.UseEndpoints(endpoints =>
                         {
                             endpoints.MapControllers();
+                            
+                            // Log registered endpoints
+                            var endpointDataSource = endpoints.DataSources.FirstOrDefault();
+                            if (endpointDataSource != null)
+                            {
+                                Console.WriteLine("========== Registered Endpoints ==========");
+                                var endpointList = endpointDataSource.Endpoints.ToList();
+                                
+                                if (endpointList.Count == 0)
+                                {
+                                    Console.WriteLine("⚠️  NO ENDPOINTS FOUND!");
+                                    Console.WriteLine("⚠️  Controllers may not be discovered.");
+                                    Console.WriteLine($"⚠️  Assembly: {typeof(HostBuilderConfig).Assembly.FullName}");
+                                }
+                                else
+                                {
+                                    foreach (var endpoint in endpointList)
+                                    {
+                                        if (endpoint is Microsoft.AspNetCore.Routing.RouteEndpoint routeEndpoint)
+                                        {
+                                            Console.WriteLine($"  [{routeEndpoint.RoutePattern.RawText}] {endpoint.DisplayName}");
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine($"  {endpoint.DisplayName}");
+                                        }
+                                    }
+                                }
+                                Console.WriteLine("==========================================");
+                            }
+                            else
+                            {
+                                Console.WriteLine("⚠️  WARNING: No endpoint data source found!");
+                            }
                         });
                     });
                 });

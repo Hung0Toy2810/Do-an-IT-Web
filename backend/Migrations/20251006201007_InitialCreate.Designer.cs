@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace backend.Migrations
 {
     [DbContext(typeof(SQLServerDbContext))]
-    [Migration("20251006053353_InitialCreate")]
+    [Migration("20251006201007_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -40,6 +40,9 @@ namespace backend.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<bool>("Status")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -47,9 +50,13 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_Administrator_Status");
+
                     b.HasIndex("Username")
                         .IsUnique()
-                        .HasDatabaseName("IX_Administrator_Username");
+                        .HasDatabaseName("IX_Administrator_Username")
+                        .HasFilter("Status = 1");
 
                     b.ToTable("Administrators");
                 });
@@ -122,7 +129,7 @@ namespace backend.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasDefaultValueSql("NEWID()");
 
-                    b.Property<string>("AvtKey")
+                    b.Property<string>("AvtURL")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
@@ -137,6 +144,11 @@ namespace backend.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
                     b.Property<string>("HashPassword")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -148,7 +160,6 @@ namespace backend.Migrations
                         .HasColumnType("nvarchar(15)");
 
                     b.Property<bool>("Status")
-                        .HasMaxLength(100)
                         .HasColumnType("bit");
 
                     b.HasKey("Id");
@@ -156,8 +167,11 @@ namespace backend.Migrations
                     b.HasIndex("CustomerName")
                         .HasDatabaseName("IX_Customer_CustomerName");
 
-                    b.HasIndex("PhoneNumber")
+                    b.HasIndex("Email")
                         .IsUnique()
+                        .HasDatabaseName("IX_Customer_Email");
+
+                    b.HasIndex("PhoneNumber")
                         .HasDatabaseName("IX_Customer_PhoneNumber");
 
                     b.HasIndex("Status")

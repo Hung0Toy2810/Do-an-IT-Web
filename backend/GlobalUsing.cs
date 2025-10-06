@@ -31,3 +31,7 @@ global using System.Threading;
 global using System.Security.Cryptography;
 global using System.Net.Http;
 global using Minio.DataModel;
+global using Backend.Model.Entity;
+global using Backend.Model.dto;
+global using Backend.Model.dto.Administrator;
+global using Backend.Model.dto.Customer;

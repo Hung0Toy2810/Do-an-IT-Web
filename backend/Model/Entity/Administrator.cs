@@ -12,5 +12,8 @@ namespace Backend.Model.Entity
 
         [Required, MaxLength(100)]
         public string PasswordHash { get; set; } = string.Empty;
+        
+        [Required]
+        public bool Status { get; set; } = true;
     }
 }

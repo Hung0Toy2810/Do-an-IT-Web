@@ -33,14 +33,16 @@ namespace Backend.SQLDbContext
             // Cấu hình cho Administrator
             modelBuilder.Entity<Administrator>(entity =>
             {
-                // Tự động sinh GUID cho Id
                 entity.Property(e => e.Id)
                     .HasDefaultValueSql("NEWID()");
 
-                // Index cho Username để tối ưu tìm kiếm, và ràng buộc unique
                 entity.HasIndex(e => e.Username)
                     .IsUnique()
-                    .HasDatabaseName("IX_Administrator_Username");
+                    .HasDatabaseName("IX_Administrator_Username")
+                    .HasFilter("Status = 1"); // Chỉ unique với Status = true
+
+                entity.HasIndex(e => e.Status)
+                    .HasDatabaseName("IX_Administrator_Status");
             });
 
             // Cấu hình cho Customer
@@ -50,18 +52,22 @@ namespace Backend.SQLDbContext
                 entity.Property(e => e.Id)
                     .HasDefaultValueSql("NEWID()");
 
-                // Index cho PhoneNumber để tối ưu tìm kiếm, và ràng buộc unique
+                // Index cho PhoneNumber để tối ưu tìm kiếm, không unique
                 entity.HasIndex(e => e.PhoneNumber)
-                    .IsUnique()
                     .HasDatabaseName("IX_Customer_PhoneNumber");
 
-                // Index cho CustomerName để hỗ trợ tìm kiếm (full-text search nếu cần, nhưng dùng index thông thường)
+                // Index cho CustomerName để hỗ trợ tìm kiếm
                 entity.HasIndex(e => e.CustomerName)
                     .HasDatabaseName("IX_Customer_CustomerName");
 
                 // Index cho Status để tối ưu truy vấn khách hàng active/inactive
                 entity.HasIndex(e => e.Status)
                     .HasDatabaseName("IX_Customer_Status");
+
+                // Index cho Email để tối ưu tìm kiếm, và ràng buộc unique
+                entity.HasIndex(e => e.Email)
+                    .IsUnique()
+                    .HasDatabaseName("IX_Customer_Email");
             });
 
             // Cấu hình cho Category

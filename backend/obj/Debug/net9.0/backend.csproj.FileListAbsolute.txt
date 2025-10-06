@@ -167,6 +167,7 @@
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.csproj.CoreCompileInputs.cache
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.MvcApplicationPartsAssemblyInfo.cs
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.MvcApplicationPartsAssemblyInfo.cache
+/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.sourcelink.json
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/scopedcss/bundle/backend.styles.css
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/staticwebassets.build.json
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/staticwebassets.development.json

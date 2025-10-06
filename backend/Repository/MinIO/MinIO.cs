@@ -4,6 +4,11 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using System.IO;
 using Minio.Exceptions;
+using System;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using System.Collections.Generic;
 
 namespace Backend.Repository.MinIO
 {
@@ -21,6 +26,14 @@ namespace Backend.Repository.MinIO
         private readonly IMinioClient _minioClient;
         private readonly string _minioPublicUrl;
         private readonly ILogger<FileRepository> _logger;
+        private static readonly HashSet<string> AllowedImageContentTypes = new HashSet<string>
+        {
+            "image/jpeg",
+            "image/png",
+            "image/gif",
+            "image/bmp",
+            "image/webp"
+        };
 
         public FileRepository(IMinioClient minioClient, IConfiguration configuration, ILogger<FileRepository> logger)
         {
@@ -32,27 +45,68 @@ namespace Backend.Repository.MinIO
         // Upload ảnh người dùng và trả về key
         public async Task<string> UploadFileAsync(IFormFile file, string bucketName)
         {
+            // Kiểm tra dữ liệu đầu vào
+            if (file == null || file.Length == 0)
+                throw new ArgumentException("File cannot be null or empty.", nameof(file));
+
+            // Kiểm tra Content-Type để đảm bảo là ảnh
+            if (!AllowedImageContentTypes.Contains(file.ContentType))
+            {
+                _logger.LogError("Invalid file type: {ContentType}. Only image files are allowed.", file.ContentType);
+                throw new ArgumentException("Only image files (JPEG, PNG, GIF, BMP, WebP) are allowed.", nameof(file));
+            }
+
             await EnsureBucketExists(bucketName);
             string fileName = $"{Guid.NewGuid()}_{file.FileName}";
+
+            // Kiểm tra định dạng ảnh bằng ImageSharp
             using var stream = file.OpenReadStream();
+            try
+            {
+                using var image = await Image.LoadAsync(stream);
+                // Nếu tải được ảnh mà không lỗi, file là ảnh hợp lệ
+                stream.Position = 0; // Reset stream để upload
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "File {FileName} is not a valid image.", file.FileName);
+                throw new ArgumentException("File is not a valid image.", nameof(file));
+            }
+
             await _minioClient.PutObjectAsync(new PutObjectArgs()
                 .WithBucket(bucketName)
                 .WithObject(fileName)
                 .WithStreamData(stream)
                 .WithObjectSize(file.Length)
                 .WithContentType(file.ContentType));
-            _logger.LogInformation("Uploaded user file: {FileName}", fileName);
+            _logger.LogInformation("Uploaded user image: {FileName}", fileName);
             return fileName;
         }
 
         // Upload ảnh sản phẩm (chuyển đổi sang JPG, công khai) và trả về key
         public async Task<string> ConvertAndUploadPublicFileAsJpgAsync(Stream fileStream, string bucketName, string fileName, long maxSize)
         {
+            // Kiểm tra dữ liệu đầu vào
+            if (fileStream == null || fileStream.Length == 0)
+                throw new ArgumentException("File stream cannot be null or empty.", nameof(fileStream));
+
             try
             {
                 await EnsureBucketExists(bucketName);
                 await SetPublicBucketPolicy(bucketName);
                 string jpgFileName = Path.ChangeExtension(fileName, ".jpg");
+
+                // Kiểm tra định dạng ảnh bằng ImageSharp
+                try
+                {
+                    using var image = await Image.LoadAsync(fileStream);
+                    fileStream.Position = 0; // Reset stream để xử lý tiếp
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "File {FileName} is not a valid image.", fileName);
+                    throw new ArgumentException("File is not a valid image.", nameof(fileName));
+                }
 
                 if (fileStream.Length <= maxSize)
                 {
@@ -69,7 +123,7 @@ namespace Backend.Repository.MinIO
                         .WithStreamData(outputStream)
                         .WithObjectSize(outputStream.Length)
                         .WithContentType("image/jpeg"));
-                    _logger.LogInformation("Public file uploaded without compression: {FileName}", jpgFileName);
+                    _logger.LogInformation("Public image uploaded without compression: {FileName}", jpgFileName);
                     return jpgFileName;
                 }
 
@@ -107,7 +161,7 @@ namespace Backend.Repository.MinIO
                         .WithStreamData(tempStream)
                         .WithObjectSize(tempStream.Length)
                         .WithContentType("image/jpeg"));
-                    _logger.LogInformation("Public file compressed to ~{MaxSize}MB and uploaded: {FileName}, Quality: {Quality}",
+                    _logger.LogInformation("Public image compressed to ~{MaxSize}MB and uploaded: {FileName}, Quality: {Quality}",
                         maxSize / (1024.0 * 1024.0), jpgFileName, quality);
                 }
 
@@ -115,7 +169,7 @@ namespace Backend.Repository.MinIO
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error uploading public file to JPG");
+                _logger.LogError(ex, "Error uploading public image to JPG: {FileName}", fileName);
                 throw;
             }
         }
