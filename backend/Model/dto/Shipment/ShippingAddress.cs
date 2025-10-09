@@ -1,4 +1,4 @@
-namespace Backend.Model.dto.Shipping
+namespace Backend.Model.dto.Shipment
 {
     public class ShippingAddressDto
     {

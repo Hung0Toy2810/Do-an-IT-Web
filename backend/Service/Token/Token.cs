@@ -25,16 +25,13 @@ namespace Backend.Service.Token
         private readonly SymmetricSecurityKey _key;
         private readonly ILogger<JwtTokenService> _logger;
 
-        public JwtTokenService(
-            IConfiguration config,
-            IConnectionMultiplexer redis,
-            ILogger<JwtTokenService> logger)
+        public JwtTokenService(IConfiguration config, IConnectionMultiplexer redis, ILogger<JwtTokenService> logger)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _redis = redis ?? throw new ArgumentNullException(nameof(redis));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            var jwtKey = _config["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is not configured.");
-            if (jwtKey.Length < 32) throw new InvalidOperationException("Jwt:Key must be at least 32 characters.");
+            var jwtKey = _config["Jwt:SecretKey"] ?? _config["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:SecretKey or Jwt:Key must be configured.");
+            if (jwtKey.Length < 32) throw new InvalidOperationException("Jwt key must be at least 32 characters.");
             _key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         }
 
@@ -59,15 +56,16 @@ namespace Backend.Service.Token
                 new Claim(ClaimTypes.NameIdentifier, id),
                 new Claim(ClaimTypes.Name, username),
                 new Claim(ClaimTypes.Role, role),
-                new Claim(JwtRegisteredClaimNames.Jti, jti),
+                new Claim("jti", jti),
                 new Claim("client_ip", clientIp ?? "unknown")
             };
 
+            var expirationMinutes = _config.GetValue<int>("Jwt:ExpirationMinutes", 1440);
             var token = new JwtSecurityToken(
                 issuer: _config["Jwt:Issuer"],
                 audience: _config["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.UtcNow.AddDays(7),
+                expires: DateTime.UtcNow.AddMinutes(expirationMinutes),
                 signingCredentials: new SigningCredentials(_key, SecurityAlgorithms.HmacSha256)
             );
 
@@ -76,7 +74,7 @@ namespace Backend.Service.Token
             var db = _redis.GetDatabase();
             var sessionKey = $"session:{id}:{jti}";
             var sessionData = $"{jti}|{clientIp}|{username}|{role}|{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
-            await db.StringSetAsync(sessionKey, sessionData, TimeSpan.FromDays(7));
+            await db.StringSetAsync(sessionKey, sessionData, TimeSpan.FromMinutes(expirationMinutes));
             await db.ListRightPushAsync($"tokens:{id}", jti);
 
             _logger.LogInformation("Generated token for user {Username} with JTI {Jti}", username, jti);
@@ -93,7 +91,7 @@ namespace Backend.Service.Token
             }
 
             var jwtToken = tokenHandler.ReadJwtToken(token);
-            var jtiClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti);
+            var jtiClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "jti");
             var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
             if (jtiClaim == null || userIdClaim == null)
             {
@@ -115,36 +113,23 @@ namespace Backend.Service.Token
             await db.KeyDeleteAsync($"session:{userId}:{jti}");
             await db.ListRemoveAsync($"tokens:{userId}", jti);
 
-            _logger.LogInformation("Revoked token with JTI {Jti} for user {UserId}", jti, userId);
+            _logger.LogInformation("Revoked token with JTI {Jti} for user {UserId}, TTL: {TTL}", jti, userId, ttl);
         }
 
         public async Task RevokeAllTokensExceptCurrentAsync(string userId, string currentTokenJti)
         {
             var db = _redis.GetDatabase();
-            var tokenListKey = $"tokens:{userId}";
-            var jtids = await db.ListRangeAsync(tokenListKey);
-            if (jtids.Length == 0)
+            var tokens = await db.ListRangeAsync($"tokens:{userId}");
+            foreach (var tokenJti in tokens)
             {
-                _logger.LogInformation("No tokens found for user {UserId}", userId);
-                return;
-            }
-
-            foreach (var jti in jtids)
-            {
-                if (jti != currentTokenJti)
+                if (tokenJti != currentTokenJti)
                 {
-                    await db.StringSetAsync($"revoked:{jti}", "true", TimeSpan.FromDays(7));
-                    await db.KeyDeleteAsync($"session:{userId}:{jti}");
+                    await db.StringSetAsync($"revoked:{tokenJti}", "true", TimeSpan.FromMinutes(_config.GetValue<int>("Jwt:ExpirationMinutes", 1440)));
+                    await db.KeyDeleteAsync($"session:{userId}:{tokenJti}");
+                    await db.ListRemoveAsync($"tokens:{userId}", tokenJti);
+                    _logger.LogInformation("Revoked token with JTI {Jti} for user {UserId}", tokenJti, userId);
                 }
             }
-
-            await db.KeyDeleteAsync(tokenListKey);
-            if (!string.IsNullOrEmpty(currentTokenJti))
-            {
-                await db.ListRightPushAsync(tokenListKey, currentTokenJti);
-            }
-
-            _logger.LogInformation("Revoked all tokens except JTI {CurrentJti} for user {UserId}", currentTokenJti, userId);
         }
     }
 }

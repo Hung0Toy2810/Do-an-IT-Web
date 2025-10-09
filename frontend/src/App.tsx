@@ -10,14 +10,14 @@ function App() {
   return (
     <div className="min-h-screen mx-auto bg-gray-100">
       {/* Navbar */}
-      {/* <AppleStyleNavbar /> */}
+      <AppleStyleNavbar />
       {/* Hero Banner thường chiếm toàn bộ chiều ngang */}
-      {/* <HeroBannerCarousel /> */}
+      <HeroBannerCarousel />
       {/* Product Section */}
-      {/* <ProductSectionDemo /> */}
+      <ProductSectionDemo />
       {/* Footer */}
       {/* <ProfilePage onNavigate={(page) => alert(`Navigate to ${page}`)} /> */}
-      {/* <ProductDetailDemo/> */}
+      <ProductDetailDemo/>
       <ShoppingCart />
 
       <FooterDemo />

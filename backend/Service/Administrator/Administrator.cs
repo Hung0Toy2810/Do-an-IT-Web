@@ -7,6 +7,9 @@ using Backend.Service.Password;
 using Backend.Service.Token;
 using Backend.Model.dto;
 using Backend.Service.CustomerService;
+using System.Linq;
+using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace Backend.Service.AdministratorService
 {
@@ -23,6 +26,8 @@ namespace Backend.Service.AdministratorService
         Task<AdministratorInfoDto> GetAdministratorInfoByUsernameAsync(string username);
         Task<List<AdministratorInfoDto>> GetAllAdministratorsAsync();
         Task<List<CustomerInfoDto>> GetAllCustomersAsync();
+        Task LogoutCurrentDeviceAsync(string token);
+        Task LogoutAllOtherDevicesAsync(string userId, string currentTokenJti);
     }
 
     public class AdministratorService : IAdministratorService
@@ -49,7 +54,6 @@ namespace Backend.Service.AdministratorService
 
         public async Task CreateAdministratorAsync(CreateAdministrator createAdministrator)
         {
-            // Kiểm tra dữ liệu đầu vào
             if (createAdministrator == null)
                 throw new ArgumentNullException(nameof(createAdministrator), "Administrator data cannot be null.");
 
@@ -59,11 +63,9 @@ namespace Backend.Service.AdministratorService
             if (string.IsNullOrWhiteSpace(createAdministrator.Password))
                 throw new ArgumentException("Password cannot be empty.", nameof(createAdministrator.Password));
 
-            // Kiểm tra xem username đã được sử dụng bởi tài khoản active chưa
             if (await _administratorRepository.IsUsernameTakenAsync(createAdministrator.Username))
                 throw new InvalidOperationException("An administrator with this username already exists.");
 
-            // Tạo đối tượng Administrator
             var administrator = new Administrator
             {
                 Username = createAdministrator.Username,
@@ -71,7 +73,6 @@ namespace Backend.Service.AdministratorService
                 Status = true
             };
 
-            // Sử dụng transaction để đảm bảo tính toàn vẹn dữ liệu
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
                 try
@@ -89,7 +90,6 @@ namespace Backend.Service.AdministratorService
 
         public async Task<LoginResponse> LoginAsync(LoginAdministrator loginAdministrator, string clientIp)
         {
-            // Kiểm tra dữ liệu đầu vào
             if (loginAdministrator == null)
                 throw new ArgumentNullException(nameof(loginAdministrator), "Login data cannot be null.");
 
@@ -99,20 +99,16 @@ namespace Backend.Service.AdministratorService
             if (string.IsNullOrWhiteSpace(loginAdministrator.Password))
                 throw new ArgumentException("Password cannot be empty.", nameof(loginAdministrator.Password));
 
-            // Tìm administrator theo username (chỉ lấy tài khoản active)
             var administrator = await _administratorRepository.GetAdministratorByUsernameAsync(loginAdministrator.Username);
             if (administrator == null)
                 throw new UnauthorizedAccessException("Invalid username or password.");
 
-            // Xác minh mật khẩu
             if (!_passwordHasher.VerifyPassword(loginAdministrator.Password, administrator.PasswordHash))
                 throw new UnauthorizedAccessException("Invalid username or password.");
 
-            // Kiểm tra trạng thái administrator
             if (!administrator.Status)
                 throw new UnauthorizedAccessException("Administrator account is inactive.");
 
-            // Tạo JWT token
             var token = await _jwtTokenService.GenerateTokenAsync(
                 id: administrator.Id.ToString(),
                 username: administrator.Username,
@@ -120,7 +116,6 @@ namespace Backend.Service.AdministratorService
                 clientIp: clientIp
             );
 
-            // Giải mã token để lấy thời gian hết hạn
             var tokenHandler = new JwtSecurityTokenHandler();
             var jwtToken = tokenHandler.ReadJwtToken(token);
             var expiration = jwtToken.ValidTo;
@@ -135,20 +130,16 @@ namespace Backend.Service.AdministratorService
 
         public async Task DeleteAdministratorAsync(Guid administratorId)
         {
-            // Kiểm tra administrator tồn tại
             var administrator = await _administratorRepository.GetAdministratorByIdAsync(administratorId);
             if (administrator == null)
                 throw new ArgumentException("Administrator not found.");
 
-            // Kiểm tra trạng thái administrator
             if (!administrator.Status)
                 throw new InvalidOperationException("Administrator account is already inactive.");
 
-            // Bắt đầu transaction
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Đặt Status = false
                 administrator.Status = false;
                 await _administratorRepository.UpdateAdministratorAsync(administrator);
                 await transaction.CommitAsync();
@@ -162,20 +153,16 @@ namespace Backend.Service.AdministratorService
 
         public async Task DeleteAdministratorByUsernameAsync(string username)
         {
-            // Tìm administrator theo username (chỉ lấy tài khoản active)
             var administrator = await _administratorRepository.GetAdministratorByUsernameAsync(username);
             if (administrator == null)
                 throw new ArgumentException("Administrator not found.");
 
-            // Kiểm tra trạng thái administrator
             if (!administrator.Status)
                 throw new InvalidOperationException("Administrator account is already inactive.");
 
-            // Bắt đầu transaction
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Đặt Status = false
                 administrator.Status = false;
                 await _administratorRepository.UpdateAdministratorAsync(administrator);
                 await transaction.CommitAsync();
@@ -189,7 +176,6 @@ namespace Backend.Service.AdministratorService
 
         public async Task ChangePasswordAsync(Guid administratorId, ChangePasswordRequest request)
         {
-            // Kiểm tra dữ liệu đầu vào
             if (request == null)
                 throw new ArgumentNullException(nameof(request), "Password change request cannot be null.");
 
@@ -199,24 +185,19 @@ namespace Backend.Service.AdministratorService
             if (string.IsNullOrWhiteSpace(request.NewPassword))
                 throw new ArgumentException("New password cannot be empty.", nameof(request.NewPassword));
 
-            // Kiểm tra administrator tồn tại
             var administrator = await _administratorRepository.GetAdministratorByIdAsync(administratorId);
             if (administrator == null)
                 throw new ArgumentException("Administrator not found.");
 
-            // Kiểm tra trạng thái administrator
             if (!administrator.Status)
                 throw new UnauthorizedAccessException("Administrator account is inactive.");
 
-            // Xác minh mật khẩu cũ
             if (!_passwordHasher.VerifyPassword(request.OldPassword, administrator.PasswordHash))
                 throw new UnauthorizedAccessException("Incorrect old password.");
 
-            // Bắt đầu transaction
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Cập nhật mật khẩu mới
                 administrator.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
                 await _administratorRepository.UpdateAdministratorAsync(administrator);
                 await transaction.CommitAsync();
@@ -230,7 +211,6 @@ namespace Backend.Service.AdministratorService
 
         public async Task ChangePasswordByUsernameAsync(string username, ChangePasswordRequest request)
         {
-            // Kiểm tra dữ liệu đầu vào
             if (request == null)
                 throw new ArgumentNullException(nameof(request), "Password change request cannot be null.");
 
@@ -240,24 +220,19 @@ namespace Backend.Service.AdministratorService
             if (string.IsNullOrWhiteSpace(request.NewPassword))
                 throw new ArgumentException("New password cannot be empty.", nameof(request.NewPassword));
 
-            // Tìm administrator theo username (chỉ lấy tài khoản active)
             var administrator = await _administratorRepository.GetAdministratorByUsernameAsync(username);
             if (administrator == null)
                 throw new ArgumentException("Administrator not found.");
 
-            // Kiểm tra trạng thái administrator
             if (!administrator.Status)
                 throw new UnauthorizedAccessException("Administrator account is inactive.");
 
-            // Xác minh mật khẩu cũ
             if (!_passwordHasher.VerifyPassword(request.OldPassword, administrator.PasswordHash))
                 throw new UnauthorizedAccessException("Incorrect old password.");
 
-            // Bắt đầu transaction
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Cập nhật mật khẩu mới
                 administrator.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
                 await _administratorRepository.UpdateAdministratorAsync(administrator);
                 await transaction.CommitAsync();
@@ -334,6 +309,16 @@ namespace Backend.Service.AdministratorService
         public async Task<List<CustomerInfoDto>> GetAllCustomersAsync()
         {
             return await _customerService.GetAllCustomersAsync();
+        }
+
+        public async Task LogoutCurrentDeviceAsync(string token)
+        {
+            await _jwtTokenService.RevokeTokenAsync(token);
+        }
+
+        public async Task LogoutAllOtherDevicesAsync(string userId, string currentTokenJti)
+        {
+            await _jwtTokenService.RevokeAllTokensExceptCurrentAsync(userId, currentTokenJti);
         }
     }
 }

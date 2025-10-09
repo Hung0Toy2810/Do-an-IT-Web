@@ -57,6 +57,7 @@ namespace Backend.Repository.MinIO
             }
 
             await EnsureBucketExists(bucketName);
+            await SetPublicBucketPolicy(bucketName); // Add this line to ensure the bucket is public
             string fileName = $"{Guid.NewGuid()}_{file.FileName}";
 
             // Kiểm tra định dạng ảnh bằng ImageSharp
@@ -64,7 +65,6 @@ namespace Backend.Repository.MinIO
             try
             {
                 using var image = await Image.LoadAsync(stream);
-                // Nếu tải được ảnh mà không lỗi, file là ảnh hợp lệ
                 stream.Position = 0; // Reset stream để upload
             }
             catch (Exception ex)

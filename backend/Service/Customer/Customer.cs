@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using StackExchange.Redis;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace Backend.Service.CustomerService
 {
@@ -155,9 +156,8 @@ namespace Backend.Service.CustomerService
                 clientIp: clientIp
             );
 
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var jwtToken = tokenHandler.ReadJwtToken(token);
-            var expiration = jwtToken.ValidTo;
+            var expirationMinutes = _configuration.GetValue<int>("Jwt:ExpirationMinutes", 1440);
+            var expiration = DateTime.UtcNow.AddMinutes(expirationMinutes);
 
             return new LoginResponse
             {
@@ -220,7 +220,6 @@ namespace Backend.Service.CustomerService
         public async Task<string> UpdateAvatarAsync(Guid customerId, IFormFile file)
         {
             var bucketName = "avatars";
-            var publicUrlBase = _configuration["Minio:PublicUrl"] ?? throw new InvalidOperationException("Minio public URL không được cấu hình.");
 
             var customer = await _customerRepository.GetCustomerByIdAsync(customerId);
             if (customer == null)
@@ -233,13 +232,13 @@ namespace Backend.Service.CustomerService
             try
             {
                 var fileKey = await _fileRepository.UploadFileAsync(file, bucketName);
-                newAvtURL = $"{publicUrlBase}/{bucketName}/{fileKey}";
+                newAvtURL = await _fileRepository.GetStaticPublicFileUrl(bucketName, fileKey);
                 customer.AvtURL = newAvtURL;
                 await _customerRepository.UpdateCustomerAsync(customer);
 
                 if (!string.IsNullOrEmpty(oldAvtURL))
                 {
-                    var oldFileKey = oldAvtURL.Replace($"{publicUrlBase}/{bucketName}/", "");
+                    var oldFileKey = oldAvtURL.Replace($"{_configuration["Minio:PublicUrl"]}/{bucketName}/", "");
                     await _fileRepository.DeleteFileAsync(bucketName, oldFileKey);
                 }
 
@@ -251,7 +250,7 @@ namespace Backend.Service.CustomerService
                 await transaction.RollbackAsync();
                 if (!string.IsNullOrEmpty(newAvtURL))
                 {
-                    var newFileKey = newAvtURL.Replace($"{publicUrlBase}/{bucketName}/", "");
+                    var newFileKey = newAvtURL.Replace($"{_configuration["Minio:PublicUrl"]}/{bucketName}/", "");
                     await _fileRepository.DeleteFileAsync(bucketName, newFileKey);
                 }
                 throw;
@@ -475,9 +474,9 @@ namespace Backend.Service.CustomerService
 
         private string GenerateOtp()
         {
-            var bytes = new byte[4]; // Changed from 3 to 4 bytes
+            var bytes = new byte[4];
             RandomNumberGenerator.Fill(bytes);
-            return (BitConverter.ToUInt32(bytes, 0) % 1000000).ToString("D6"); // Ensure 6-digit OTP
+            return (BitConverter.ToUInt32(bytes, 0) % 1000000).ToString("D6");
         }
     }
 }

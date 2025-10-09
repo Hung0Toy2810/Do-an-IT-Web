@@ -14,6 +14,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Backend.Middleware;
+using Backend.Service.CategoryService;
+using Backend.Repository.CategoryRepository;
 
 namespace Backend 
 {
@@ -25,6 +27,13 @@ namespace Backend
                 {
                     var configuration = hostContext.Configuration;
 
+                    // ===== Logging (đăng ký trước để dùng trong ConfigureServices) =====
+                    services.AddLogging(builder =>
+                    {
+                        builder.AddConsole();
+                        builder.SetMinimumLevel(LogLevel.Debug);
+                    });
+
                     // ===== SQL Server: DbContext =====
                     var connectionString = configuration.GetConnectionString("DefaultConnection");
                     if (string.IsNullOrEmpty(connectionString))
@@ -32,7 +41,7 @@ namespace Backend
 
                     services.AddDbContext<SQLServerDbContext>(options =>
                         options.UseSqlServer(connectionString)
-                               .UseLazyLoadingProxies());
+                            .UseLazyLoadingProxies());
 
                     // ===== MongoDb Factory =====
                     services.AddSingleton<IMongoDbContextFactory, MongoDbContextFactory>();
@@ -43,13 +52,28 @@ namespace Backend
                         var redisConfig = ConfigurationOptions.Parse($"{configuration["Redis:Host"]}:{configuration["Redis:Port"]}");
                         redisConfig.Password = configuration["Redis:Password"];
                         redisConfig.AbortOnConnectFail = false;
+                        redisConfig.ConnectTimeout = 5000;
+                        redisConfig.SyncTimeout = 5000;
 
                         var redis = ConnectionMultiplexer.Connect(redisConfig);
                         services.AddSingleton<IConnectionMultiplexer>(redis);
+
+                        // Dùng ILoggerFactory từ DI thay vì BuildServiceProvider
+                        var loggerFactory = hostContext.HostingEnvironment.IsDevelopment()
+                            ? services.BuildServiceProvider().GetService<ILoggerFactory>()
+                            : null; // Chỉ log trong dev, tránh ở production
+                        var logger = loggerFactory?.CreateLogger("Redis");
+                        logger?.LogInformation("Successfully connected to Redis at {Host}:{Port}", configuration["Redis:Host"], configuration["Redis:Port"]);
+                        var db = redis.GetDatabase();
+                        db.PingAsync().GetAwaiter().GetResult(); // Đồng bộ để test
+                        logger?.LogInformation("Redis ping successful");
                     }
                     catch (RedisConnectionException ex)
                     {
-                        var logger = services.BuildServiceProvider().GetService<ILoggerFactory>()?.CreateLogger("Redis");
+                        var loggerFactory = hostContext.HostingEnvironment.IsDevelopment()
+                            ? services.BuildServiceProvider().GetService<ILoggerFactory>()
+                            : null;
+                        var logger = loggerFactory?.CreateLogger("Redis");
                         logger?.LogError(ex, "Failed to connect to Redis at {Host}:{Port}", configuration["Redis:Host"], configuration["Redis:Port"]);
                         throw;
                     }
@@ -66,39 +90,13 @@ namespace Backend
                     });
 
                     // ===== JWT Authentication =====
-                    var jwtSecretKey = configuration["Jwt:SecretKey"];
-                    if (string.IsNullOrEmpty(jwtSecretKey))
-                    {
-                        jwtSecretKey = "DefaultSecretKeyForDevelopmentOnlyMustBeAtLeast32Characters!";
-                        Console.WriteLine("⚠️  WARNING: Using default JWT SecretKey. Please configure Jwt:SecretKey in appsettings.json");
-                    }
-
-                    services.AddAuthentication(options =>
-                    {
-                        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                    })
-                    .AddJwtBearer(options =>
-                    {
-                        options.TokenValidationParameters = new TokenValidationParameters
-                        {
-                            ValidateIssuer = true,
-                            ValidateAudience = true,
-                            ValidateLifetime = true,
-                            ValidateIssuerSigningKey = true,
-                            ValidIssuer = configuration["Jwt:Issuer"] ?? "BackendAPI",
-                            ValidAudience = configuration["Jwt:Audience"] ?? "BackendUsers",
-                            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey)),
-                            ClockSkew = TimeSpan.Zero
-                        };
-                    });
-
+                    services.AddJwtAuthentication(configuration);
+                    
                     services.AddAuthorization();
 
                     // ===== Controllers =====
                     services.AddControllers()
                         .AddApplicationPart(typeof(HostBuilderConfig).Assembly)
-                        .AddControllersAsServices()
                         .ConfigureApiBehaviorOptions(options =>
                         {
                             options.InvalidModelStateResponseFactory = context =>
@@ -124,39 +122,29 @@ namespace Backend
                         options.AddPolicy("AllowAll", policy =>
                         {
                             policy.AllowAnyOrigin()
-                                  .AllowAnyMethod()
-                                  .AllowAnyHeader();
+                                .AllowAnyMethod()
+                                .AllowAnyHeader();
                         });
                     });
 
-                    // ===== Logging =====
-                    services.AddLogging(builder =>
-                    {
-                        builder.AddConsole();
-                        builder.SetMinimumLevel(LogLevel.Information);
-                    });
-
-                    // ===== Repository =====
+                    // ===== Repository và Service =====
                     services.AddScoped<IAdministratorRepository, AdministratorRepository>();
                     services.AddScoped<ICustomerRepository, CustomerRepository>();
                     services.AddScoped<IFileRepository, FileRepository>();
-
-                    // ===== Service =====
                     services.AddScoped<IAdministratorService, AdministratorService>();
                     services.AddScoped<ICustomerService, CustomerService>();
                     services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
                     services.AddScoped<IJwtTokenService, JwtTokenService>();
+                    services.AddScoped<ICategoryRepository, CategoryRepository>();
+                    services.AddScoped<ICategoryService, CategoryService>();
                 })
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.Configure(app =>
                     {
-                        // Sử dụng ExceptionHandlingMiddleware thay vì UseExceptionHandler
                         app.UseExceptionHandlingMiddleware();
-
                         app.UseRouting();
 
-                        // Middleware để log request
                         app.Use(async (context, next) =>
                         {
                             Console.WriteLine($"Request: {context.Request.Method} {context.Request.Path}");
@@ -171,19 +159,14 @@ namespace Backend
                         app.UseEndpoints(endpoints =>
                         {
                             endpoints.MapControllers();
-                            
-                            // Log registered endpoints
                             var endpointDataSource = endpoints.DataSources.FirstOrDefault();
                             if (endpointDataSource != null)
                             {
                                 Console.WriteLine("========== Registered Endpoints ==========");
                                 var endpointList = endpointDataSource.Endpoints.ToList();
-                                
                                 if (endpointList.Count == 0)
                                 {
                                     Console.WriteLine("⚠️  NO ENDPOINTS FOUND!");
-                                    Console.WriteLine("⚠️  Controllers may not be discovered.");
-                                    Console.WriteLine($"⚠️  Assembly: {typeof(HostBuilderConfig).Assembly.FullName}");
                                 }
                                 else
                                 {
@@ -200,10 +183,6 @@ namespace Backend
                                     }
                                 }
                                 Console.WriteLine("==========================================");
-                            }
-                            else
-                            {
-                                Console.WriteLine("⚠️  WARNING: No endpoint data source found!");
                             }
                         });
                     });

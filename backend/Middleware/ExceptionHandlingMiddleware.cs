@@ -6,7 +6,8 @@ using System;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.IdentityModel.Tokens;
-
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Backend.Middleware
 {
@@ -46,12 +47,11 @@ namespace Backend.Middleware
             };
 
             // PHẦN NÀY ĐỂ XỬ LÝ TỪNG LOẠI EXCEPTION
-            // Để THÊM một exception mới: 
-            // 1. Thêm 'case' mới vào switch bên dưới với loại exception bạn muốn (ví dụ: case MyNewException).
-            // 2. Tạo một phương thức xử lý mới ở dưới (ví dụ: HandleMyNewException).
-            // Để CHỈNH SỬA một exception: Chỉ cần sửa logic trong phương thức tương ứng (ví dụ: HandleValidationException).
             switch (exception)
             {
+                case AuthenticationException authEx:
+                    HandleAuthenticationException(problemDetails, authEx);
+                    break;
                 case NotFoundException notFoundEx:
                     HandleNotFoundException(problemDetails, notFoundEx);
                     break;
@@ -89,6 +89,7 @@ namespace Backend.Middleware
                     HandleDefaultException(problemDetails, exception);
                     break;
             }
+            
             if (_env.IsDevelopment())
             {
                 if (exception.InnerException != null)
@@ -106,7 +107,6 @@ namespace Backend.Middleware
             context.Response.StatusCode = problemDetails.Status ?? StatusCodes.Status500InternalServerError;
             context.Response.ContentType = "application/problem+json";
 
-
             var jsonOptions = new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -115,6 +115,14 @@ namespace Backend.Middleware
             await context.Response.WriteAsync(JsonSerializer.Serialize(problemDetails, jsonOptions));
         }
 
+        // Xử lý Authentication Exception (MỚI THÊM)
+        private void HandleAuthenticationException(ProblemDetails problemDetails, AuthenticationException ex)
+        {
+            problemDetails.Status = StatusCodes.Status401Unauthorized;
+            problemDetails.Title = "Authentication Failed";
+            problemDetails.Type = "https://tools.ietf.org/html/rfc7235#section-3.1";
+            problemDetails.Detail = ex.Message;
+        }
 
         // Xử lý Not Found Exception
         private void HandleNotFoundException(ProblemDetails problemDetails, NotFoundException ex)
@@ -142,15 +150,17 @@ namespace Backend.Middleware
             problemDetails.Type = "https://tools.ietf.org/html/rfc7231#section-6.5.3";
             problemDetails.Detail = ex.Message;
         }
-        //SecurityTokenExpiredException
+
+        // SecurityTokenExpiredException
         private void HandleSecurityTokenExpiredException(ProblemDetails problemDetails, SecurityTokenExpiredException ex)
         {
             problemDetails.Status = StatusCodes.Status401Unauthorized;
             problemDetails.Title = "Token Expired";
             problemDetails.Type = "https://tools.ietf.org/html/rfc6750#section-3.1";
-            problemDetails.Detail = "The token has expired.";
+            problemDetails.Detail = "The token has expired. Please login again.";
         }
-        //SecurityTokenException
+
+        // SecurityTokenException
         private void HandleSecurityTokenException(ProblemDetails problemDetails, SecurityTokenException ex)
         {
             problemDetails.Status = StatusCodes.Status401Unauthorized;
@@ -158,12 +168,13 @@ namespace Backend.Middleware
             problemDetails.Type = "https://tools.ietf.org/html/rfc6750#section-3.1";
             problemDetails.Detail = ex.Message;
         }
-        //ArgumentException
+
+        // ArgumentException
         private void HandleArgumentException(ProblemDetails problemDetails, ArgumentException ex)
         {
             problemDetails.Status = StatusCodes.Status400BadRequest;
             problemDetails.Title = "Invalid Argument";
-            problemDetails.Type = "https://tools.ietf.org/html/rfc7231#section-6.5.2";
+            problemDetails.Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1";
             problemDetails.Detail = ex.Message;
         }
 
@@ -175,6 +186,7 @@ namespace Backend.Middleware
             problemDetails.Type = "https://tools.ietf.org/html/rfc7231#section-6.6.1";
             problemDetails.Detail = ex.Message;
         }
+
         private void HandleArgumentNullException(ProblemDetails problemDetails, ArgumentNullException ex)
         {
             problemDetails.Status = StatusCodes.Status400BadRequest;
@@ -182,6 +194,7 @@ namespace Backend.Middleware
             problemDetails.Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1";
             problemDetails.Detail = ex.Message;
         }
+
         private void HandleInvalidOperationException(ProblemDetails problemDetails, InvalidOperationException ex)
         {
             problemDetails.Status = StatusCodes.Status409Conflict;
@@ -189,6 +202,7 @@ namespace Backend.Middleware
             problemDetails.Type = "https://tools.ietf.org/html/rfc7231#section-6.5.8";
             problemDetails.Detail = ex.Message;
         }
+
         private void HandleDbUpdateException(ProblemDetails problemDetails, DbUpdateException ex)
         {
             problemDetails.Status = StatusCodes.Status500InternalServerError;
@@ -196,6 +210,7 @@ namespace Backend.Middleware
             problemDetails.Type = "https://tools.ietf.org/html/rfc7231#section-6.6.1";
             problemDetails.Detail = ex.InnerException?.Message ?? ex.Message;
         }
+
         private void HandleTimeoutException(ProblemDetails problemDetails, TimeoutException ex)
         {
             problemDetails.Status = StatusCodes.Status504GatewayTimeout;
@@ -211,24 +226,6 @@ namespace Backend.Middleware
             problemDetails.Type = "https://tools.ietf.org/html/rfc7231#section-6.6.3";
             problemDetails.Detail = ex.Message;
         }
-
-
-
-        // VÍ DỤ: Nếu muốn THÊM một exception mới, bạn có thể làm như sau:
-        // 1. Thêm vào switch ở trên:
-        //    case ForbiddenException forbiddenEx:
-        //        HandleForbiddenException(problemDetails, forbiddenEx);
-        //        break;
-        // 2. Thêm phương thức xử lý mới ở đây:
-        /*
-        private void HandleForbiddenException(ProblemDetails problemDetails, ForbiddenException ex)
-        {
-            problemDetails.Status = StatusCodes.Status403Forbidden;
-            problemDetails.Title = "Forbidden";
-            problemDetails.Type = "https://tools.ietf.org/html/rfc7231#section-6.5.3";
-            problemDetails.Detail = ex.Message;
-        }
-        */
     }
 
     public static class ExceptionHandlingMiddlewareExtensions

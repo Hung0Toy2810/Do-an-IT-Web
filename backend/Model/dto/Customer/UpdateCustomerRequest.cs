@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using Backend.Model.dto.Shipping;
+using Backend.Model.dto.Shipment;
 
 namespace Backend.Model.dto.Customer
 {

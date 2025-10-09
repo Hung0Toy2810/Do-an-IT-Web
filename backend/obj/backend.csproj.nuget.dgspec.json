@@ -79,6 +79,10 @@
               "target": "Package",
               "version": "[9.0.4, )"
             },
+            "Microsoft.IdentityModel.Tokens": {
+              "target": "Package",
+              "version": "[8.1.2, )"
+            },
             "Minio": {
               "target": "Package",
               "version": "[6.0.4, )"
@@ -101,7 +105,7 @@
             },
             "System.IdentityModel.Tokens.Jwt": {
               "target": "Package",
-              "version": "[8.7.0, )"
+              "version": "[8.1.2, )"
             }
           },
           "imports": [

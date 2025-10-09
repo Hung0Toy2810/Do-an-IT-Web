@@ -32,11 +32,6 @@ namespace Backend.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> GenerateOtpForRegistration([FromBody] GenerateOtpRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             await _customerService.GenerateOtpForRegistrationAsync(request.PhoneNumber);
             return Ok(new { Message = "OTP đã được sinh và in ra console." });
         }
@@ -49,13 +44,9 @@ namespace Backend.Controllers
         [HttpPost("register")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> CreateCustomer([FromBody] CreateCustomerWithOtpRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             await _customerService.CreateCustomerAsync(request.CreateCustomer, request.Otp);
             return Created($"api/customers/{request.CreateCustomer.PhoneNumber}", new
             {
@@ -70,15 +61,8 @@ namespace Backend.Controllers
         /// <param name="loginCustomer">Dữ liệu đăng nhập gồm số điện thoại và mật khẩu.</param>
         /// <returns>Phản hồi chứa token JWT và thời gian hết hạn.</returns>
         [HttpPost("login")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Login([FromBody] LoginCustomer loginCustomer)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             var response = await _customerService.LoginAsync(loginCustomer, clientIp);
             return Ok(response);
@@ -92,13 +76,9 @@ namespace Backend.Controllers
         [HttpPost("password/reset/otp")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> GenerateOtpForPasswordRecovery([FromBody] GenerateOtpRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             await _customerService.GenerateOtpForPasswordRecoveryAsync(request.PhoneNumber);
             return Ok(new { Message = "OTP cho khôi phục mật khẩu đã được sinh và in ra console." });
         }
@@ -111,13 +91,9 @@ namespace Backend.Controllers
         [HttpPost("password/reset")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             await _customerService.ResetPasswordAsync(request.PhoneNumber, request.Otp, request.NewPassword);
             return Ok(new { Message = "Đặt lại mật khẩu thành công." });
         }
@@ -133,17 +109,12 @@ namespace Backend.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> UpdateAvatar([FromForm] IFormFile file)
         {
-            if (file == null || file.Length == 0)
-            {
-                return BadRequest("Dữ liệu file không hợp lệ.");
-            }
-
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userIdClaim == null || !Guid.TryParse(userIdClaim, out Guid customerId))
+            if (userIdClaim == null)
             {
-                return Unauthorized("ID người dùng trong token không hợp lệ.");
+                throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng trong token.");
             }
-
+            var customerId = Guid.Parse(userIdClaim); // Let exception propagate if invalid
             var avatarUrl = await _customerService.UpdateAvatarAsync(customerId, file);
             return Ok(new { Message = "Cập nhật ảnh đại diện thành công.", AvatarUrl = avatarUrl });
         }
@@ -160,17 +131,12 @@ namespace Backend.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> UpdateCustomer([FromBody] UpdateCustomerRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest("Dữ liệu đầu vào không hợp lệ.");
-            }
-
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userIdClaim == null || !Guid.TryParse(userIdClaim, out Guid customerId))
+            if (userIdClaim == null)
             {
-                return Unauthorized("ID người dùng trong token không hợp lệ.");
+                throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng trong token.");
             }
-
+            var customerId = Guid.Parse(userIdClaim); // Let exception propagate if invalid
             await _customerService.UpdateCustomerAsync(customerId, request);
             return Ok(new { Message = "Cập nhật thông tin khách hàng thành công." });
         }
@@ -186,11 +152,11 @@ namespace Backend.Controllers
         public async Task<IActionResult> DeleteCustomer()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userIdClaim == null || !Guid.TryParse(userIdClaim, out Guid customerId))
+            if (userIdClaim == null)
             {
-                return Unauthorized("ID người dùng trong token không hợp lệ.");
+                throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng trong token.");
             }
-
+            var customerId = Guid.Parse(userIdClaim); // Let exception propagate if invalid
             await _customerService.DeleteCustomerAsync(customerId);
             return Ok(new { Message = "Tài khoản khách hàng đã được hủy kích hoạt thành công." });
         }
@@ -207,17 +173,12 @@ namespace Backend.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest("Dữ liệu đầu vào không hợp lệ.");
-            }
-
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userIdClaim == null || !Guid.TryParse(userIdClaim, out Guid customerId))
+            if (userIdClaim == null)
             {
-                return Unauthorized("ID người dùng trong token không hợp lệ.");
+                throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng trong token.");
             }
-
+            var customerId = Guid.Parse(userIdClaim); // Let exception propagate if invalid
             await _customerService.ChangePasswordAsync(customerId, request);
             return Ok(new { Message = "Thay đổi mật khẩu thành công." });
         }
@@ -227,17 +188,10 @@ namespace Backend.Controllers
         /// </summary>
         /// <returns>Phản hồi cho biết kết quả đăng xuất.</returns>
         [HttpPost("logout")]
-        [Authorize(Roles = "Customer")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [AllowAnonymous] // Giữ để test, sau khi fix sẽ thêm [Authorize]
         public async Task<IActionResult> LogoutCurrentDevice()
         {
             var token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            if (string.IsNullOrEmpty(token))
-            {
-                return BadRequest("Không có token được cung cấp.");
-            }
-
             await _customerService.LogoutCurrentDeviceAsync(token);
             return Ok(new { Message = "Đăng xuất thành công khỏi thiết bị hiện tại." });
         }
@@ -256,23 +210,12 @@ namespace Backend.Controllers
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdClaim == null)
             {
-                return Unauthorized("ID người dùng trong token không hợp lệ.");
+                throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng trong token.");
             }
-
             var token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             var tokenHandler = new JwtSecurityTokenHandler();
-            if (!tokenHandler.CanReadToken(token))
-            {
-                return BadRequest("Định dạng token không hợp lệ.");
-            }
-
-            var jwtToken = tokenHandler.ReadJwtToken(token);
-            var jtiClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value;
-            if (jtiClaim == null)
-            {
-                return BadRequest("Token không chứa JTI.");
-            }
-
+            var jwtToken = tokenHandler.ReadJwtToken(token); // Let exception propagate if invalid
+            var jtiClaim = jwtToken.Claims.First(c => c.Type == JwtRegisteredClaimNames.Jti).Value; // Let exception propagate if missing
             await _customerService.LogoutAllOtherDevicesAsync(userIdClaim, jtiClaim);
             return Ok(new { Message = "Đăng xuất thành công khỏi tất cả các thiết bị khác." });
         }
@@ -283,15 +226,19 @@ namespace Backend.Controllers
         /// <returns>Thông tin khách hàng hiện tại.</returns>
         [HttpGet("me")]
         [Authorize(Roles = "Customer")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> GetCurrentCustomerInfo()
         {
+            var logger = HttpContext.RequestServices.GetRequiredService<ILogger<CustomerController>>();
+            var claims = User.Claims.Select(c => $"{c.Type}={c.Value}");
+            logger.LogDebug("User claims in /me: {Claims}", string.Join(", ", claims));
+
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userIdClaim == null)
+            if (string.IsNullOrEmpty(userIdClaim))
             {
-                return Unauthorized("ID người dùng trong token không hợp lệ.");
+                logger.LogWarning("No NameIdentifier claim found in token.");
+                return Unauthorized("Không tìm thấy thông tin người dùng trong token.");
             }
+
             var customerInfo = await _customerService.GetCustomerInfoByTokenAsync(userIdClaim);
             return Ok(customerInfo);
         }

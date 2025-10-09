@@ -35,4 +35,5 @@ global using Backend.Model.Entity;
 global using Backend.Model.dto;
 global using Backend.Model.dto.Administrator;
 global using Backend.Model.dto.Customer;
-global using Backend.Model.dto.Shipping;
+global using Backend.Model.dto.Shipment;
+global using Backend.Model.dto.Category;
