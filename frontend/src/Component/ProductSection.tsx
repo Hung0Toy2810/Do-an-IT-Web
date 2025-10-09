@@ -61,7 +61,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
         {/* Discount Label */}
         {product.discountPercentage && (
-          <div className="absolute px-1.5 py-0.5 text-xs font-bold text-white rounded-xl top-1.5 left-1.5 bg-violet-800">
+          <div className="absolute px-1.5 py-0.5 text-xs font-bold text-white rounded-xl top-1.5 left-1.5 bg-violet-800 sm:px-2.5 sm:top-2.5 sm:left-2.5">
             -{product.discountPercentage}%
           </div>
         )}
@@ -69,11 +69,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
         {/* Favorite Button */}
         <button
           onClick={handleToggleFavorite}
-          className="absolute p-1 transition-all bg-white border border-gray-200 shadow-sm top-1.5 right-1.5 rounded-md hover:bg-violet-50 focus:outline-none focus:ring-1 focus:ring-violet-800/20"
+          className="absolute p-1 transition-all bg-white border border-gray-200 shadow-sm top-1.5 right-1.5 rounded-md hover:bg-violet-50 focus:outline-none focus:ring-1 focus:ring-violet-800/20 sm:p-1.5 sm:top-2.5 sm:right-2.5"
           aria-label={isLiked ? "Remove from favorites" : "Add to favorites"}
         >
           <Heart
-            className={`w-3.5 h-3.5 transition-colors ${
+            className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors ${
               isLiked
                 ? "fill-violet-800 text-violet-800"
                 : "text-gray-400 hover:text-violet-800"
@@ -83,7 +83,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
       </div>
 
       {/* Content - Flex Layout */}
-      <div className="flex flex-col flex-1 p-2.5">
+      <div className="flex flex-col flex-1 p-2.5 sm:p-3.5">
         {/* Top Content */}
         <div className="flex-shrink-0">
           {/* Category */}
@@ -92,17 +92,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
           </p>
 
           {/* Product Name */}
-          <h3 className="mt-1 text-xs font-semibold leading-tight text-gray-900 line-clamp-2">
+          <h3 className="mt-1 text-xs font-semibold leading-tight text-gray-900 sm:text-sm line-clamp-2">
             {product.name}
           </h3>
 
           {/* Rating */}
-          <div className="flex items-center gap-1 mt-1.5">
+          <div className="flex items-center gap-1 mt-1.5 sm:mt-2 sm:gap-1.5">
             <div className="flex items-center gap-0.5">
               {[...Array(5)].map((_, index) => (
                 <Star
                   key={index}
-                  className={`w-2.5 h-2.5 ${
+                  className={`w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 ${
                     index < Math.floor(product.rating)
                       ? "fill-yellow-400 text-yellow-400"
                       : "text-gray-300"
@@ -125,28 +125,27 @@ const ProductCard: React.FC<ProductCardProps> = ({
           <div className="flex items-center gap-1.5 mt-2">
             {product.discountedPrice ? (
               <>
-                <span className="text-xs font-bold text-violet-800">
+                <span className="text-xs font-bold text-violet-800 sm:text-base">
                   {formatPrice(product.discountedPrice)}
                 </span>
-                <span className="text-[10px] text-gray-500 line-through">
+                <span className="text-[10px] sm:text-xs text-gray-500 line-through">
                   {formatPrice(product.originalPrice)}
                 </span>
               </>
             ) : (
-              <span className="text-xs font-bold text-gray-900">
+              <span className="text-xs font-bold text-gray-900 sm:text-base">
                 {formatPrice(product.originalPrice)}
               </span>
             )}
           </div>
 
-
           {/* Add to Cart Button */}
           <button
             onClick={handleAddToCart}
-            className="flex items-center justify-center w-full gap-1 px-2 py-1 mt-2 text-sm font-medium text-white transition-all border shadow-sm bg-violet-800 border-violet-800 rounded-xl hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-300"
+            className="flex items-center justify-center w-full gap-1 px-2 py-1 mt-2 text-sm font-medium text-white transition-all border shadow-sm bg-violet-800 border-violet-800 rounded-xl hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-300 sm:gap-2 sm:px-3 sm:py-2"
           >
-            <ShoppingCart className="w-3 h-3" />
-            Thêm vào giỏ
+            <ShoppingCart className="w-3 h-3 sm:w-4 sm:h-4" />
+            Mua ngay
           </button>
         </div>
       </div>
@@ -215,8 +214,9 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   }, [cardsPerView]);
 
   return (
+    <div className="w-full max-w-screen-xl py-4 mx-auto lg:px-8 sm:px-6">
     <div
-      className="w-full p-4 bg-white shadow-lg rounded-2xl"
+      className="w-full px-2 py-4 bg-white shadow-lg lg:px-4 rounded-2xl sm:px-4"
       style={{ fontFamily: "Roboto, sans-serif" }}
     >
       {/* Header */}
@@ -269,6 +269,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
         </div>
       )}
     </div>
+  </div>
   );
 };
 
@@ -463,7 +464,7 @@ const ProductSectionDemo: React.FC = () => {
   const recommendedProducts = allProducts.slice(0, 6);
 
   return (
-    <div className="min-h-screen p-3 bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       <div className="mx-auto space-y-4 max-w-7xl">
         {/* Flash Sale Section */}
         <ProductSection

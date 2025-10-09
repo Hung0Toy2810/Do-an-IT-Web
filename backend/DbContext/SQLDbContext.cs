@@ -46,28 +46,39 @@ namespace Backend.SQLDbContext
             });
 
             // Cấu hình cho Customer
+            // Cấu hình cho Customer
             modelBuilder.Entity<Customer>(entity =>
             {
-                // Tự động sinh GUID cho Id
                 entity.Property(e => e.Id)
                     .HasDefaultValueSql("NEWID()");
 
-                // Index cho PhoneNumber để tối ưu tìm kiếm, không unique
                 entity.HasIndex(e => e.PhoneNumber)
                     .HasDatabaseName("IX_Customer_PhoneNumber");
 
-                // Index cho CustomerName để hỗ trợ tìm kiếm
                 entity.HasIndex(e => e.CustomerName)
                     .HasDatabaseName("IX_Customer_CustomerName");
 
-                // Index cho Status để tối ưu truy vấn khách hàng active/inactive
                 entity.HasIndex(e => e.Status)
                     .HasDatabaseName("IX_Customer_Status");
 
-                // Index cho Email để tối ưu tìm kiếm, và ràng buộc unique
                 entity.HasIndex(e => e.Email)
                     .IsUnique()
                     .HasDatabaseName("IX_Customer_Email");
+
+                // Cấu hình StandardShippingAddress là Owned Entity
+                entity.OwnsOne(e => e.StandardShippingAddress, shippingAddress =>
+                {
+                    // Ánh xạ các thuộc tính của StandardShippingAddress vào cùng bảng Customer
+                    shippingAddress.Property(e => e.ProvinceId).HasColumnName("StandardShippingAddress_ProvinceId");
+                    shippingAddress.Property(e => e.ProvinceCode).HasColumnName("StandardShippingAddress_ProvinceCode");
+                    shippingAddress.Property(e => e.ProvinceName).HasColumnName("StandardShippingAddress_ProvinceName");
+                    shippingAddress.Property(e => e.DistrictId).HasColumnName("StandardShippingAddress_DistrictId");
+                    shippingAddress.Property(e => e.DistrictValue).HasColumnName("StandardShippingAddress_DistrictValue");
+                    shippingAddress.Property(e => e.DistrictName).HasColumnName("StandardShippingAddress_DistrictName");
+                    shippingAddress.Property(e => e.WardsId).HasColumnName("StandardShippingAddress_WardsId");
+                    shippingAddress.Property(e => e.WardsName).HasColumnName("StandardShippingAddress_WardsName");
+                    shippingAddress.Property(e => e.DetailAddress).HasColumnName("StandardShippingAddress_DetailAddress");
+                });
             });
 
             // Cấu hình cho Category
@@ -145,23 +156,31 @@ namespace Backend.SQLDbContext
             // Cấu hình cho Invoice
             modelBuilder.Entity<Invoice>(entity =>
             {
-                // Quan hệ 1-n với Customer
                 entity.HasOne(e => e.Customer)
                     .WithMany(e => e.Invoices)
                     .HasForeignKey(e => e.CustomerId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // Index cho CreatedAt để tối ưu truy vấn theo thời gian (báo cáo doanh thu)
                 entity.HasIndex(e => e.CreatedAt)
                     .HasDatabaseName("IX_Invoice_CreatedAt");
 
-                // Index cho CustomerId để tối ưu truy vấn lịch sử hóa đơn của khách
                 entity.HasIndex(e => e.CustomerId)
                     .HasDatabaseName("IX_Invoice_CustomerId");
 
-                // Index cho DeliveryAddress để hỗ trợ tìm kiếm hóa đơn theo địa chỉ (nếu cần thống kê khu vực)
-                entity.HasIndex(e => e.DeliveryAddress)
-                    .HasDatabaseName("IX_Invoice_DeliveryAddress");
+                // Cấu hình ShippingAddress là Owned Entity
+                entity.OwnsOne(e => e.ShippingAddress, shippingAddress =>
+                {
+                    // Ánh xạ các thuộc tính của ShippingAddress vào cùng bảng Invoice
+                    shippingAddress.Property(e => e.ProvinceId).HasColumnName("ShippingAddress_ProvinceId");
+                    shippingAddress.Property(e => e.ProvinceCode).HasColumnName("ShippingAddress_ProvinceCode");
+                    shippingAddress.Property(e => e.ProvinceName).HasColumnName("ShippingAddress_ProvinceName");
+                    shippingAddress.Property(e => e.DistrictId).HasColumnName("ShippingAddress_DistrictId");
+                    shippingAddress.Property(e => e.DistrictValue).HasColumnName("ShippingAddress_DistrictValue");
+                    shippingAddress.Property(e => e.DistrictName).HasColumnName("ShippingAddress_DistrictName");
+                    shippingAddress.Property(e => e.WardsId).HasColumnName("ShippingAddress_WardsId");
+                    shippingAddress.Property(e => e.WardsName).HasColumnName("ShippingAddress_WardsName");
+                    shippingAddress.Property(e => e.DetailAddress).HasColumnName("ShippingAddress_DetailAddress");
+                });
             });
 
             // Cấu hình cho InvoiceDetail

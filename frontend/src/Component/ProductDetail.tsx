@@ -614,10 +614,10 @@ export default function ProductDetailDemo() {
   };
 
   return (
-    <div className="min-h-screen px-4 py-4 bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 sm:py-6">
-      <div className="container mx-auto max-w-7xl">
+    <div className="min-h-screen py-4 bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 sm:py-6">
+      <div className="container max-w-screen-xl mx-auto">
         {/* Row 1: Images & Info */}
-        <div className="grid items-stretch grid-cols-1 gap-4 lg:grid-cols-2 sm:gap-6">
+        <div className="grid items-stretch grid-cols-1 gap-4 px-4 lg:px-8 sm:px-6 lg:grid-cols-2 sm:gap-6">
           <ProductImages
             images={product.images}
             productName={product.name}
@@ -641,7 +641,7 @@ export default function ProductDetailDemo() {
         </div>
 
         {/* Row 2: Reviews & Specifications */}
-        <div className="grid grid-cols-1 gap-4 mt-4 lg:grid-cols-2 sm:gap-6 sm:mt-6">
+        <div className="grid grid-cols-1 gap-4 px-4 mt-4 lg:px-8 sm:px-6 lg:grid-cols-2 sm:gap-6 sm:mt-6">
           <div className="order-2 lg:order-1">
             <ProductReviews reviews={reviews} productRating={product.rating} />
           </div>

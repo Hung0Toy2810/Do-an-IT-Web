@@ -13,6 +13,7 @@ using Backend.Service.Token;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Backend.Middleware;
 
 namespace Backend 
 {
@@ -68,7 +69,6 @@ namespace Backend
                     var jwtSecretKey = configuration["Jwt:SecretKey"];
                     if (string.IsNullOrEmpty(jwtSecretKey))
                     {
-                        // Sử dụng default key nếu không có trong config (KHÔNG NÊN dùng trong production)
                         jwtSecretKey = "DefaultSecretKeyForDevelopmentOnlyMustBeAtLeast32Characters!";
                         Console.WriteLine("⚠️  WARNING: Using default JWT SecretKey. Please configure Jwt:SecretKey in appsettings.json");
                     }
@@ -101,7 +101,6 @@ namespace Backend
                         .AddControllersAsServices()
                         .ConfigureApiBehaviorOptions(options =>
                         {
-                            // Tự động trả về 400 Bad Request khi ModelState không hợp lệ
                             options.InvalidModelStateResponseFactory = context =>
                             {
                                 var errors = context.ModelState
@@ -137,12 +136,12 @@ namespace Backend
                         builder.SetMinimumLevel(LogLevel.Information);
                     });
 
-                    // =============== Repository =================================
+                    // ===== Repository =====
                     services.AddScoped<IAdministratorRepository, AdministratorRepository>();
                     services.AddScoped<ICustomerRepository, CustomerRepository>();
                     services.AddScoped<IFileRepository, FileRepository>();
 
-                    // =============== Service ====================================
+                    // ===== Service =====
                     services.AddScoped<IAdministratorService, AdministratorService>();
                     services.AddScoped<ICustomerService, CustomerService>();
                     services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
@@ -152,28 +151,8 @@ namespace Backend
                 {
                     webBuilder.Configure(app =>
                     {
-                        // ===== Exception Handler =====
-                        app.UseExceptionHandler(errorApp =>
-                        {
-                            errorApp.Run(async context =>
-                            {
-                                context.Response.StatusCode = 500;
-                                context.Response.ContentType = "application/json";
-
-                                var exceptionHandlerFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
-                                if (exceptionHandlerFeature != null)
-                                {
-                                    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-                                    logger.LogError(exceptionHandlerFeature.Error, "Unhandled exception occurred");
-
-                                    await context.Response.WriteAsJsonAsync(new
-                                    {
-                                        Message = "An error occurred processing your request.",
-                                        Detail = exceptionHandlerFeature.Error.Message
-                                    });
-                                }
-                            });
-                        });
+                        // Sử dụng ExceptionHandlingMiddleware thay vì UseExceptionHandler
+                        app.UseExceptionHandlingMiddleware();
 
                         app.UseRouting();
 

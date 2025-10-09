@@ -44,7 +44,15 @@ namespace backend.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWID()"),
                     CustomerName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    DeliveryAddress = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    StandardShippingAddress_ProvinceId = table.Column<int>(type: "int", nullable: false),
+                    StandardShippingAddress_ProvinceCode = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    StandardShippingAddress_ProvinceName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    StandardShippingAddress_DistrictId = table.Column<int>(type: "int", nullable: false),
+                    StandardShippingAddress_DistrictValue = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    StandardShippingAddress_DistrictName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    StandardShippingAddress_WardsId = table.Column<int>(type: "int", nullable: false),
+                    StandardShippingAddress_WardsName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    StandardShippingAddress_DetailAddress = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     PhoneNumber = table.Column<string>(type: "nvarchar(15)", maxLength: 15, nullable: false),
                     HashPassword = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Status = table.Column<bool>(type: "bit", nullable: false),
@@ -84,7 +92,15 @@ namespace backend.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     CustomerId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    DeliveryAddress = table.Column<string>(type: "nvarchar(450)", nullable: false)
+                    ShippingAddress_ProvinceId = table.Column<int>(type: "int", nullable: false),
+                    ShippingAddress_ProvinceCode = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ShippingAddress_ProvinceName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ShippingAddress_DistrictId = table.Column<int>(type: "int", nullable: false),
+                    ShippingAddress_DistrictValue = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ShippingAddress_DistrictName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ShippingAddress_WardsId = table.Column<int>(type: "int", nullable: false),
+                    ShippingAddress_WardsName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ShippingAddress_DetailAddress = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -305,11 +321,6 @@ namespace backend.Migrations
                 name: "IX_Invoice_CustomerId",
                 table: "Invoices",
                 column: "CustomerId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Invoice_DeliveryAddress",
-                table: "Invoices",
-                column: "DeliveryAddress");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ProductDailyStat_Date",

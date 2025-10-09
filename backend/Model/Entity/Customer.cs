@@ -10,9 +10,8 @@ namespace Backend.Model.Entity
 
         [MaxLength(100)]
         public string CustomerName { get; set; } = string.Empty;
-
-        [MaxLength(100)]
-        public string DeliveryAddress { get; set; } = string.Empty;
+        [Required]
+        public ShippingAddress StandardShippingAddress { get; set; } = new ShippingAddress();
 
         [Required, MaxLength(15)]
         public string PhoneNumber { get; set; } = string.Empty;

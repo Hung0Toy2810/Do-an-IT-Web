@@ -93,9 +93,8 @@ export default function ShoppingCart({ onCheckoutSuccess }: ShoppingCartProps) {
 
   const paymentMethods: PaymentMethod[] = [
     { id: 'cod', name: 'Thanh toán khi nhận hàng (COD)', icon: '💵' },
-    { id: 'bank', name: 'Chuyển khoản ngân hàng', icon: '🏦' },
+    { id: 'bank', name: 'VNPay', icon: '🏦' },
     { id: 'momo', name: 'Ví MoMo', icon: '📱' },
-    { id: 'card', name: 'Thẻ tín dụng/ghi nợ', icon: '💳' },
   ];
 
   useEffect(() => {
@@ -379,7 +378,6 @@ export default function ShoppingCart({ onCheckoutSuccess }: ShoppingCartProps) {
                       onChange={(e) => setSelectedPayment(e.target.value)}
                       className="w-4 h-4 border-gray-300 text-violet-800 focus:ring-violet-700"
                     />
-                    <span className="text-xl">{method.icon}</span>
                     <span className="text-sm font-medium text-gray-900">{method.name}</span>
                   </label>
                 ))}

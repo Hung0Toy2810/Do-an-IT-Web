@@ -9,14 +9,19 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
-
+using StackExchange.Redis;
+using System.Security.Cryptography;
+using Microsoft.Extensions.Logging;
 
 namespace Backend.Service.CustomerService
 {
     public interface ICustomerService
     {
-        Task CreateCustomerAsync(CreateCustomer createCustomer);
+        Task GenerateOtpForRegistrationAsync(string phoneNumber);
+        Task CreateCustomerAsync(CreateCustomer createCustomer, string otp);
         Task<LoginResponse> LoginAsync(LoginCustomer loginCustomer, string clientIp);
+        Task GenerateOtpForPasswordRecoveryAsync(string phoneNumber);
+        Task ResetPasswordAsync(string phoneNumber, string otp, string newPassword);
         Task<string> UpdateAvatarAsync(Guid customerId, IFormFile file);
         Task UpdateCustomerAsync(Guid customerId, UpdateCustomerRequest request);
         Task DeleteCustomerAsync(Guid customerId);
@@ -24,7 +29,10 @@ namespace Backend.Service.CustomerService
         Task<CustomerInfoDto> GetCustomerInfoAsync(Guid customerId);
         Task<CustomerInfoDto> GetCustomerInfoByTokenAsync(string userIdClaim);
         Task<List<CustomerInfoDto>> GetAllCustomersAsync();
+        Task LogoutCurrentDeviceAsync(string token);
+        Task LogoutAllOtherDevicesAsync(string userId, string currentTokenJti);
     }
+
     public class CustomerService : ICustomerService
     {
         private readonly ICustomerRepository _customerRepository;
@@ -33,6 +41,8 @@ namespace Backend.Service.CustomerService
         private readonly SQLServerDbContext _context;
         private readonly IFileRepository _fileRepository;
         private readonly IConfiguration _configuration;
+        private readonly IConnectionMultiplexer _redis;
+        private readonly ILogger<CustomerService> _logger;
 
         public CustomerService(
             ICustomerRepository customerRepository,
@@ -40,7 +50,9 @@ namespace Backend.Service.CustomerService
             IJwtTokenService jwtTokenService,
             SQLServerDbContext context,
             IFileRepository fileRepository,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IConnectionMultiplexer redis,
+            ILogger<CustomerService> logger)
         {
             _customerRepository = customerRepository ?? throw new ArgumentNullException(nameof(customerRepository));
             _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
@@ -48,42 +60,63 @@ namespace Backend.Service.CustomerService
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _fileRepository = fileRepository ?? throw new ArgumentNullException(nameof(fileRepository));
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            _redis = redis ?? throw new ArgumentNullException(nameof(redis));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task CreateCustomerAsync(CreateCustomer createCustomer)
+        public async Task GenerateOtpForRegistrationAsync(string phoneNumber)
         {
-            // Kiểm tra dữ liệu đầu vào
+            if (string.IsNullOrWhiteSpace(phoneNumber))
+                throw new ArgumentException("Số điện thoại không được để trống.", nameof(phoneNumber));
+
+            if (await _customerRepository.IsPhoneNumberTakenAsync(phoneNumber))
+                throw new InvalidOperationException("Số điện thoại đã được sử dụng bởi một tài khoản đang hoạt động.");
+
+            var otp = GenerateOtp();
+            var db = _redis.GetDatabase();
+            await db.StringSetAsync($"otp:register:{phoneNumber}", otp, TimeSpan.FromMinutes(5));
+            _logger.LogInformation("Đã sinh OTP cho đăng ký: {Otp} cho số điện thoại {PhoneNumber}", otp, phoneNumber);
+        }
+
+        public async Task CreateCustomerAsync(CreateCustomer createCustomer, string otp)
+        {
             if (createCustomer == null)
-                throw new ArgumentNullException(nameof(createCustomer), "Customer data cannot be null.");
+                throw new ArgumentNullException(nameof(createCustomer), "Dữ liệu khách hàng không được để trống.");
 
             if (string.IsNullOrWhiteSpace(createCustomer.PhoneNumber))
-                throw new ArgumentException("Phone number cannot be empty.", nameof(createCustomer.PhoneNumber));
+                throw new ArgumentException("Số điện thoại không được để trống.", nameof(createCustomer.PhoneNumber));
 
             if (string.IsNullOrWhiteSpace(createCustomer.Password))
-                throw new ArgumentException("Password cannot be empty.", nameof(createCustomer.Password));
+                throw new ArgumentException("Mật khẩu không được để trống.", nameof(createCustomer.Password));
 
-            // Kiểm tra xem số điện thoại đã được sử dụng bởi tài khoản active chưa
+            if (string.IsNullOrWhiteSpace(otp))
+                throw new ArgumentException("OTP không được để trống.", nameof(otp));
+
+            var db = _redis.GetDatabase();
+            var storedOtp = await db.StringGetAsync($"otp:register:{createCustomer.PhoneNumber}");
+            if (storedOtp.IsNullOrEmpty || storedOtp != otp)
+                throw new UnauthorizedAccessException("OTP không hợp lệ.");
+
             if (await _customerRepository.IsPhoneNumberTakenAsync(createCustomer.PhoneNumber))
-                throw new InvalidOperationException("A customer with this phone number already exists.");
+                throw new InvalidOperationException("Số điện thoại đã được sử dụng bởi một tài khoản đang hoạt động.");
 
-            // Tạo đối tượng Customer với các trường tối thiểu
             var customer = new Customer
             {
                 PhoneNumber = createCustomer.PhoneNumber,
                 HashPassword = _passwordHasher.HashPassword(createCustomer.Password),
                 Status = true,
                 CustomerName = string.Empty,
-                DeliveryAddress = string.Empty,
+                StandardShippingAddress = new ShippingAddress(),
                 Email = string.Empty,
                 AvtURL = string.Empty
             };
 
-            // Sử dụng transaction để đảm bảo tính toàn vẹn dữ liệu
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
                 try
                 {
                     await _customerRepository.CreateCustomerAsync(customer);
+                    await db.KeyDeleteAsync($"otp:register:{createCustomer.PhoneNumber}");
                     await transaction.CommitAsync();
                 }
                 catch
@@ -96,30 +129,25 @@ namespace Backend.Service.CustomerService
 
         public async Task<LoginResponse> LoginAsync(LoginCustomer loginCustomer, string clientIp)
         {
-            // Kiểm tra dữ liệu đầu vào
             if (loginCustomer == null)
-                throw new ArgumentNullException(nameof(loginCustomer), "Login data cannot be null.");
+                throw new ArgumentNullException(nameof(loginCustomer), "Dữ liệu đăng nhập không được để trống.");
 
             if (string.IsNullOrWhiteSpace(loginCustomer.PhoneNumber))
-                throw new ArgumentException("Phone number cannot be empty.", nameof(loginCustomer.PhoneNumber));
+                throw new ArgumentException("Số điện thoại không được để trống.", nameof(loginCustomer.PhoneNumber));
 
             if (string.IsNullOrWhiteSpace(loginCustomer.Password))
-                throw new ArgumentException("Password cannot be empty.", nameof(loginCustomer.Password));
+                throw new ArgumentException("Mật khẩu không được để trống.", nameof(loginCustomer.Password));
 
-            // Tìm khách hàng theo số điện thoại (chỉ lấy tài khoản active)
             var customer = await _customerRepository.GetCustomerByPhoneNumberAsync(loginCustomer.PhoneNumber);
             if (customer == null)
-                throw new UnauthorizedAccessException("Invalid phone number or password.");
+                throw new UnauthorizedAccessException("Số điện thoại hoặc mật khẩu không đúng.");
 
-            // Xác minh mật khẩu
             if (!_passwordHasher.VerifyPassword(loginCustomer.Password, customer.HashPassword))
-                throw new UnauthorizedAccessException("Invalid phone number or password.");
+                throw new UnauthorizedAccessException("Số điện thoại hoặc mật khẩu không đúng.");
 
-            // Kiểm tra trạng thái khách hàng
             if (!customer.Status)
-                throw new UnauthorizedAccessException("Customer account is inactive.");
+                throw new UnauthorizedAccessException("Tài khoản khách hàng không hoạt động.");
 
-            // Tạo JWT token
             var token = await _jwtTokenService.GenerateTokenAsync(
                 id: customer.Id.ToString(),
                 username: customer.PhoneNumber,
@@ -127,7 +155,6 @@ namespace Backend.Service.CustomerService
                 clientIp: clientIp
             );
 
-            // Giải mã token để lấy thời gian hết hạn
             var tokenHandler = new JwtSecurityTokenHandler();
             var jwtToken = tokenHandler.ReadJwtToken(token);
             var expiration = jwtToken.ValidTo;
@@ -136,98 +163,140 @@ namespace Backend.Service.CustomerService
             {
                 Token = token,
                 Expiration = expiration,
-                Message = "Login successful."
+                Message = "Đăng nhập thành công."
             };
+        }
+
+        public async Task GenerateOtpForPasswordRecoveryAsync(string phoneNumber)
+        {
+            if (string.IsNullOrWhiteSpace(phoneNumber))
+                throw new ArgumentException("Số điện thoại không được để trống.", nameof(phoneNumber));
+
+            var customer = await _customerRepository.GetCustomerByPhoneNumberAsync(phoneNumber);
+            if (customer == null || !customer.Status)
+                throw new UnauthorizedAccessException("Số điện thoại không hợp lệ hoặc tài khoản không hoạt động.");
+
+            var otp = GenerateOtp();
+            var db = _redis.GetDatabase();
+            await db.StringSetAsync($"otp:recovery:{phoneNumber}", otp, TimeSpan.FromMinutes(5));
+            _logger.LogInformation("Đã sinh OTP cho khôi phục mật khẩu: {Otp} cho số điện thoại {PhoneNumber}", otp, phoneNumber);
+        }
+
+        public async Task ResetPasswordAsync(string phoneNumber, string otp, string newPassword)
+        {
+            if (string.IsNullOrWhiteSpace(phoneNumber))
+                throw new ArgumentException("Số điện thoại không được để trống.", nameof(phoneNumber));
+
+            if (string.IsNullOrWhiteSpace(otp))
+                throw new ArgumentException("OTP không được để trống.", nameof(otp));
+
+            if (string.IsNullOrWhiteSpace(newPassword))
+                throw new ArgumentException("Mật khẩu mới không được để trống.", nameof(newPassword));
+
+            var db = _redis.GetDatabase();
+            var storedOtp = await db.StringGetAsync($"otp:recovery:{phoneNumber}");
+            if (storedOtp.IsNullOrEmpty || storedOtp != otp)
+                throw new UnauthorizedAccessException("OTP không hợp lệ.");
+
+            var customer = await _customerRepository.GetCustomerByPhoneNumberAsync(phoneNumber);
+            if (customer == null || !customer.Status)
+                throw new UnauthorizedAccessException("Tài khoản khách hàng không hoạt động.");
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                customer.HashPassword = _passwordHasher.HashPassword(newPassword);
+                await _customerRepository.UpdateCustomerAsync(customer);
+                await db.KeyDeleteAsync($"otp:recovery:{phoneNumber}");
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<string> UpdateAvatarAsync(Guid customerId, IFormFile file)
         {
-            var bucketName = "avatars"; // Bucket dành cho ảnh đại diện
-            var publicUrlBase = _configuration["Minio:PublicUrl"] ?? throw new InvalidOperationException("Minio public URL is not configured.");
+            var bucketName = "avatars";
+            var publicUrlBase = _configuration["Minio:PublicUrl"] ?? throw new InvalidOperationException("Minio public URL không được cấu hình.");
 
-            // Kiểm tra khách hàng tồn tại
             var customer = await _customerRepository.GetCustomerByIdAsync(customerId);
             if (customer == null)
-                throw new ArgumentException("Customer not found.");
+                throw new ArgumentException("Không tìm thấy khách hàng.");
 
-            string oldAvtURL = customer.AvtURL; // Lưu URL cũ (key cũ)
-            string newAvtURL = string.Empty; // Key mới sẽ được gán sau khi upload thành công
+            string oldAvtURL = customer.AvtURL;
+            string newAvtURL = string.Empty;
 
-            // Bắt đầu transaction cho DB
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Upload ảnh mới
                 var fileKey = await _fileRepository.UploadFileAsync(file, bucketName);
-
-                // Tạo URL công khai cho ảnh mới
                 newAvtURL = $"{publicUrlBase}/{bucketName}/{fileKey}";
-
-                // Cập nhật URL mới vào customer
                 customer.AvtURL = newAvtURL;
                 await _customerRepository.UpdateCustomerAsync(customer);
 
-                // Nếu cập nhật DB thành công và có ảnh cũ, xóa ảnh cũ
                 if (!string.IsNullOrEmpty(oldAvtURL))
                 {
-                    // Trích xuất fileKey từ URL cũ (bỏ base URL và bucket name)
                     var oldFileKey = oldAvtURL.Replace($"{publicUrlBase}/{bucketName}/", "");
                     await _fileRepository.DeleteFileAsync(bucketName, oldFileKey);
                 }
 
-                // Commit transaction
                 await transaction.CommitAsync();
-
                 return newAvtURL;
             }
             catch
             {
-                // Rollback transaction DB
                 await transaction.RollbackAsync();
-
-                // Rollback file: Nếu upload thành công nhưng DB thất bại
                 if (!string.IsNullOrEmpty(newAvtURL))
                 {
                     var newFileKey = newAvtURL.Replace($"{publicUrlBase}/{bucketName}/", "");
-                    await _fileRepository.DeleteFileAsync(bucketName, newFileKey); // Xóa ảnh mới
+                    await _fileRepository.DeleteFileAsync(bucketName, newFileKey);
                 }
-
-                throw; // Ném lại ngoại lệ để middleware xử lý
+                throw;
             }
         }
 
         public async Task UpdateCustomerAsync(Guid customerId, UpdateCustomerRequest request)
         {
-            // Kiểm tra dữ liệu đầu vào
             if (request == null)
-                throw new ArgumentNullException(nameof(request), "Update request cannot be null.");
+                throw new ArgumentNullException(nameof(request), "Yêu cầu cập nhật không được để trống.");
 
-            // Kiểm tra khách hàng tồn tại
+            if (request.StandardShippingAddress == null)
+                throw new ArgumentException("Địa chỉ giao hàng không được để trống.", nameof(request.StandardShippingAddress));
+
             var customer = await _customerRepository.GetCustomerByIdAsync(customerId);
             if (customer == null)
-                throw new ArgumentException("Customer not found.");
+                throw new ArgumentException("Không tìm thấy khách hàng.");
 
-            // Kiểm tra trạng thái khách hàng
             if (!customer.Status)
-                throw new UnauthorizedAccessException("Customer account is inactive.");
+                throw new UnauthorizedAccessException("Tài khoản khách hàng không hoạt động.");
 
-            // Kiểm tra email nếu được cung cấp
             if (!string.IsNullOrEmpty(request.Email) && request.Email != customer.Email)
             {
                 if (await _customerRepository.IsEmailTakenAsync(request.Email))
-                    throw new InvalidOperationException("The email address is already in use by an active account.");
+                    throw new InvalidOperationException("Địa chỉ email đã được sử dụng bởi một tài khoản đang hoạt động.");
             }
 
-            // Bắt đầu transaction
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Cập nhật các thuộc tính (chỉ cập nhật nếu giá trị được cung cấp)
                 if (!string.IsNullOrEmpty(request.CustomerName))
                     customer.CustomerName = request.CustomerName;
 
-                if (!string.IsNullOrEmpty(request.DeliveryAddress))
-                    customer.DeliveryAddress = request.DeliveryAddress;
+                customer.StandardShippingAddress = new ShippingAddress
+                {
+                    ProvinceId = request.StandardShippingAddress.ProvinceId,
+                    ProvinceCode = request.StandardShippingAddress.ProvinceCode,
+                    ProvinceName = request.StandardShippingAddress.ProvinceName,
+                    DistrictId = request.StandardShippingAddress.DistrictId,
+                    DistrictValue = request.StandardShippingAddress.DistrictValue,
+                    DistrictName = request.StandardShippingAddress.DistrictName,
+                    WardsId = request.StandardShippingAddress.WardsId,
+                    WardsName = request.StandardShippingAddress.WardsName,
+                    DetailAddress = request.StandardShippingAddress.DetailAddress
+                };
 
                 if (!string.IsNullOrEmpty(request.Email))
                     customer.Email = request.Email;
@@ -244,20 +313,16 @@ namespace Backend.Service.CustomerService
 
         public async Task DeleteCustomerAsync(Guid customerId)
         {
-            // Kiểm tra khách hàng tồn tại
             var customer = await _customerRepository.GetCustomerByIdAsync(customerId);
             if (customer == null)
-                throw new ArgumentException("Customer not found.");
+                throw new ArgumentException("Không tìm thấy khách hàng.");
 
-            // Kiểm tra trạng thái khách hàng
             if (!customer.Status)
-                throw new InvalidOperationException("Customer account is already inactive.");
+                throw new InvalidOperationException("Tài khoản khách hàng đã không hoạt động.");
 
-            // Bắt đầu transaction
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Đặt Status = false
                 customer.Status = false;
                 await _customerRepository.UpdateCustomerAsync(customer);
                 await transaction.CommitAsync();
@@ -271,34 +336,28 @@ namespace Backend.Service.CustomerService
 
         public async Task ChangePasswordAsync(Guid customerId, ChangePasswordRequest request)
         {
-            // Kiểm tra dữ liệu đầu vào
             if (request == null)
-                throw new ArgumentNullException(nameof(request), "Password change request cannot be null.");
+                throw new ArgumentNullException(nameof(request), "Yêu cầu thay đổi mật khẩu không được để trống.");
 
             if (string.IsNullOrWhiteSpace(request.OldPassword))
-                throw new ArgumentException("Old password cannot be empty.", nameof(request.OldPassword));
+                throw new ArgumentException("Mật khẩu cũ không được để trống.", nameof(request.OldPassword));
 
             if (string.IsNullOrWhiteSpace(request.NewPassword))
-                throw new ArgumentException("New password cannot be empty.", nameof(request.NewPassword));
+                throw new ArgumentException("Mật khẩu mới không được để trống.", nameof(request.NewPassword));
 
-            // Kiểm tra khách hàng tồn tại
             var customer = await _customerRepository.GetCustomerByIdAsync(customerId);
             if (customer == null)
-                throw new ArgumentException("Customer not found.");
+                throw new ArgumentException("Không tìm thấy khách hàng.");
 
-            // Kiểm tra trạng thái khách hàng
             if (!customer.Status)
-                throw new UnauthorizedAccessException("Customer account is inactive.");
+                throw new UnauthorizedAccessException("Tài khoản khách hàng không hoạt động.");
 
-            // Xác minh mật khẩu cũ
             if (!_passwordHasher.VerifyPassword(request.OldPassword, customer.HashPassword))
-                throw new UnauthorizedAccessException("Incorrect old password.");
+                throw new UnauthorizedAccessException("Mật khẩu cũ không đúng.");
 
-            // Bắt đầu transaction
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Cập nhật mật khẩu mới
                 customer.HashPassword = _passwordHasher.HashPassword(request.NewPassword);
                 await _customerRepository.UpdateCustomerAsync(customer);
                 await transaction.CommitAsync();
@@ -314,15 +373,26 @@ namespace Backend.Service.CustomerService
         {
             var customer = await _customerRepository.GetCustomerByIdAsync(customerId);
             if (customer == null)
-                throw new ArgumentException("Customer not found.");
+                throw new ArgumentException("Không tìm thấy khách hàng.");
 
             if (!customer.Status)
-                throw new UnauthorizedAccessException("Customer account is inactive.");
+                throw new UnauthorizedAccessException("Tài khoản khách hàng không hoạt động.");
 
             return new CustomerInfoDto
             {
                 CustomerName = customer.CustomerName,
-                DeliveryAddress = customer.DeliveryAddress,
+                StandardShippingAddress = new ShippingAddressDto
+                {
+                    ProvinceId = customer.StandardShippingAddress.ProvinceId,
+                    ProvinceCode = customer.StandardShippingAddress.ProvinceCode,
+                    ProvinceName = customer.StandardShippingAddress.ProvinceName,
+                    DistrictId = customer.StandardShippingAddress.DistrictId,
+                    DistrictValue = customer.StandardShippingAddress.DistrictValue,
+                    DistrictName = customer.StandardShippingAddress.DistrictName,
+                    WardsId = customer.StandardShippingAddress.WardsId,
+                    WardsName = customer.StandardShippingAddress.WardsName,
+                    DetailAddress = customer.StandardShippingAddress.DetailAddress
+                },
                 PhoneNumber = customer.PhoneNumber,
                 AvtURL = customer.AvtURL,
                 Email = customer.Email
@@ -332,19 +402,30 @@ namespace Backend.Service.CustomerService
         public async Task<CustomerInfoDto> GetCustomerInfoByTokenAsync(string userIdClaim)
         {
             if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out Guid customerId))
-                throw new UnauthorizedAccessException("Invalid user ID in token.");
+                throw new UnauthorizedAccessException("ID người dùng trong token không hợp lệ.");
 
             var customer = await _customerRepository.GetCustomerByIdAsync(customerId);
             if (customer == null)
-                throw new ArgumentException("Customer not found.");
+                throw new ArgumentException("Không tìm thấy khách hàng.");
 
             if (!customer.Status)
-                throw new UnauthorizedAccessException("Customer account is inactive.");
+                throw new UnauthorizedAccessException("Tài khoản khách hàng không hoạt động.");
 
             return new CustomerInfoDto
             {
                 CustomerName = customer.CustomerName,
-                DeliveryAddress = customer.DeliveryAddress,
+                StandardShippingAddress = new ShippingAddressDto
+                {
+                    ProvinceId = customer.StandardShippingAddress.ProvinceId,
+                    ProvinceCode = customer.StandardShippingAddress.ProvinceCode,
+                    ProvinceName = customer.StandardShippingAddress.ProvinceName,
+                    DistrictId = customer.StandardShippingAddress.DistrictId,
+                    DistrictValue = customer.StandardShippingAddress.DistrictValue,
+                    DistrictName = customer.StandardShippingAddress.DistrictName,
+                    WardsId = customer.StandardShippingAddress.WardsId,
+                    WardsName = customer.StandardShippingAddress.WardsName,
+                    DetailAddress = customer.StandardShippingAddress.DetailAddress
+                },
                 PhoneNumber = customer.PhoneNumber,
                 AvtURL = customer.AvtURL,
                 Email = customer.Email
@@ -361,7 +442,18 @@ namespace Backend.Service.CustomerService
                 customerDtos.Add(new CustomerInfoDto
                 {
                     CustomerName = customer.CustomerName,
-                    DeliveryAddress = customer.DeliveryAddress,
+                    StandardShippingAddress = new ShippingAddressDto
+                    {
+                        ProvinceId = customer.StandardShippingAddress.ProvinceId,
+                        ProvinceCode = customer.StandardShippingAddress.ProvinceCode,
+                        ProvinceName = customer.StandardShippingAddress.ProvinceName,
+                        DistrictId = customer.StandardShippingAddress.DistrictId,
+                        DistrictValue = customer.StandardShippingAddress.DistrictValue,
+                        DistrictName = customer.StandardShippingAddress.DistrictName,
+                        WardsId = customer.StandardShippingAddress.WardsId,
+                        WardsName = customer.StandardShippingAddress.WardsName,
+                        DetailAddress = customer.StandardShippingAddress.DetailAddress
+                    },
                     PhoneNumber = customer.PhoneNumber,
                     AvtURL = customer.AvtURL,
                     Email = customer.Email
@@ -369,6 +461,23 @@ namespace Backend.Service.CustomerService
             }
 
             return customerDtos;
+        }
+
+        public async Task LogoutCurrentDeviceAsync(string token)
+        {
+            await _jwtTokenService.RevokeTokenAsync(token);
+        }
+
+        public async Task LogoutAllOtherDevicesAsync(string userId, string currentTokenJti)
+        {
+            await _jwtTokenService.RevokeAllTokensExceptCurrentAsync(userId, currentTokenJti);
+        }
+
+        private string GenerateOtp()
+        {
+            var bytes = new byte[4]; // Changed from 3 to 4 bytes
+            RandomNumberGenerator.Fill(bytes);
+            return (BitConverter.ToUInt32(bytes, 0) % 1000000).ToString("D6"); // Ensure 6-digit OTP
         }
     }
 }

@@ -179,7 +179,7 @@ export default function AppleStyleNavbar() {
     <div className="sticky top-0 z-50 w-full font-sans bg-white shadow" style={{ fontFamily: 'Roboto, -apple-system, BlinkMacSystemFont, sans-serif' }}>
       {/* Header (Top Bar) */}
       <div className="sticky top-0 z-50 bg-white border-b border-gray-200/80">
-        <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
+        <div className="max-w-screen-xl px-4 mx-auto sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center">

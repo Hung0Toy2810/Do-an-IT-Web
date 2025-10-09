@@ -17,7 +17,7 @@ namespace Backend.Model.Entity
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Required]
-        public string DeliveryAddress { get; set; } = string.Empty;
+        public ShippingAddress ShippingAddress { get; set; } = new ShippingAddress();
 
         public virtual ICollection<InvoiceDetail> InvoiceDetails { get; set; } = new List<InvoiceDetail>();
     }

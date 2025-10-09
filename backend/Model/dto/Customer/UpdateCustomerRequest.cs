@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Backend.Model.dto.Shipping;
 
 namespace Backend.Model.dto.Customer
 {
@@ -7,8 +8,7 @@ namespace Backend.Model.dto.Customer
         [MaxLength(100, ErrorMessage = "Customer name cannot exceed 100 characters.")]
         public string? CustomerName { get; set; }
 
-        [MaxLength(100, ErrorMessage = "Delivery address cannot exceed 100 characters.")]
-        public string? DeliveryAddress { get; set; }
+        public ShippingAddressDto StandardShippingAddress { get; set; } = null!;
 
         [MaxLength(255, ErrorMessage = "Email cannot exceed 255 characters.")]
         [EmailAddress(ErrorMessage = "Invalid email format.")]

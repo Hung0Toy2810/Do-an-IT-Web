@@ -136,11 +136,6 @@ namespace backend.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("DeliveryAddress")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -191,10 +186,6 @@ namespace backend.Migrations
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("DeliveryAddress")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAt")
@@ -202,9 +193,6 @@ namespace backend.Migrations
 
                     b.HasIndex("CustomerId")
                         .HasDatabaseName("IX_Invoice_CustomerId");
-
-                    b.HasIndex("DeliveryAddress")
-                        .HasDatabaseName("IX_Invoice_DeliveryAddress");
 
                     b.ToTable("Invoices");
                 });
@@ -385,6 +373,67 @@ namespace backend.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("Backend.Model.Entity.Customer", b =>
+                {
+                    b.OwnsOne("Backend.Model.Entity.ShippingAddress", "StandardShippingAddress", b1 =>
+                        {
+                            b1.Property<Guid>("CustomerId")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<string>("DetailAddress")
+                                .HasColumnType("nvarchar(max)")
+                                .HasColumnName("StandardShippingAddress_DetailAddress");
+
+                            b1.Property<int>("DistrictId")
+                                .HasColumnType("int")
+                                .HasColumnName("StandardShippingAddress_DistrictId");
+
+                            b1.Property<string>("DistrictName")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)")
+                                .HasColumnName("StandardShippingAddress_DistrictName");
+
+                            b1.Property<string>("DistrictValue")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)")
+                                .HasColumnName("StandardShippingAddress_DistrictValue");
+
+                            b1.Property<string>("ProvinceCode")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)")
+                                .HasColumnName("StandardShippingAddress_ProvinceCode");
+
+                            b1.Property<int>("ProvinceId")
+                                .HasColumnType("int")
+                                .HasColumnName("StandardShippingAddress_ProvinceId");
+
+                            b1.Property<string>("ProvinceName")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)")
+                                .HasColumnName("StandardShippingAddress_ProvinceName");
+
+                            b1.Property<int>("WardsId")
+                                .HasColumnType("int")
+                                .HasColumnName("StandardShippingAddress_WardsId");
+
+                            b1.Property<string>("WardsName")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)")
+                                .HasColumnName("StandardShippingAddress_WardsName");
+
+                            b1.HasKey("CustomerId");
+
+                            b1.ToTable("Customers");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CustomerId");
+                        });
+
+                    b.Navigation("StandardShippingAddress")
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Backend.Model.Entity.Invoice", b =>
                 {
                     b.HasOne("Backend.Model.Entity.Customer", "Customer")
@@ -393,7 +442,64 @@ namespace backend.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.OwnsOne("Backend.Model.Entity.ShippingAddress", "ShippingAddress", b1 =>
+                        {
+                            b1.Property<long>("InvoiceId")
+                                .HasColumnType("bigint");
+
+                            b1.Property<string>("DetailAddress")
+                                .HasColumnType("nvarchar(max)")
+                                .HasColumnName("ShippingAddress_DetailAddress");
+
+                            b1.Property<int>("DistrictId")
+                                .HasColumnType("int")
+                                .HasColumnName("ShippingAddress_DistrictId");
+
+                            b1.Property<string>("DistrictName")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)")
+                                .HasColumnName("ShippingAddress_DistrictName");
+
+                            b1.Property<string>("DistrictValue")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)")
+                                .HasColumnName("ShippingAddress_DistrictValue");
+
+                            b1.Property<string>("ProvinceCode")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)")
+                                .HasColumnName("ShippingAddress_ProvinceCode");
+
+                            b1.Property<int>("ProvinceId")
+                                .HasColumnType("int")
+                                .HasColumnName("ShippingAddress_ProvinceId");
+
+                            b1.Property<string>("ProvinceName")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)")
+                                .HasColumnName("ShippingAddress_ProvinceName");
+
+                            b1.Property<int>("WardsId")
+                                .HasColumnType("int")
+                                .HasColumnName("ShippingAddress_WardsId");
+
+                            b1.Property<string>("WardsName")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)")
+                                .HasColumnName("ShippingAddress_WardsName");
+
+                            b1.HasKey("InvoiceId");
+
+                            b1.ToTable("Invoices");
+
+                            b1.WithOwner()
+                                .HasForeignKey("InvoiceId");
+                        });
+
                     b.Navigation("Customer");
+
+                    b.Navigation("ShippingAddress")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Backend.Model.Entity.InvoiceDetail", b =>

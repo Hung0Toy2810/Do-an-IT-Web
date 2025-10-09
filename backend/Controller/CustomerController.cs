@@ -1,5 +1,5 @@
 using Backend.Model.dto.Customer;
-using Backend.Model.dto.Administrator;
+using Backend.Model.dto;
 using Backend.Service.CustomerService;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace Backend.Controllers
 {
@@ -22,40 +23,60 @@ namespace Backend.Controllers
         }
 
         /// <summary>
-        /// Creates a new customer with the provided phone number and password.
+        /// Gửi yêu cầu sinh OTP để đăng ký tài khoản.
         /// </summary>
-        /// <param name="createCustomer">The customer data including phone number and password.</param>
-        /// <returns>A response indicating the result of the creation operation.</returns>
-        [HttpPost]
-        [ProducesResponseType(StatusCodes.Status201Created)]
+        /// <param name="request">Số điện thoại để sinh OTP.</param>
+        /// <returns>Phản hồi cho biết OTP đã được sinh.</returns>
+        [HttpPost("register/otp")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> CreateCustomer([FromBody] CreateCustomer createCustomer)
+        public async Task<IActionResult> GenerateOtpForRegistration([FromBody] GenerateOtpRequest request)
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(ModelState); // Thay vì throw Exception
+                return BadRequest(ModelState);
             }
 
-            await _customerService.CreateCustomerAsync(createCustomer);
-            return Created($"api/customers/{createCustomer.PhoneNumber}", new
+            await _customerService.GenerateOtpForRegistrationAsync(request.PhoneNumber);
+            return Ok(new { Message = "OTP đã được sinh và in ra console." });
+        }
+
+        /// <summary>
+        /// Tạo tài khoản khách hàng sau khi xác thực OTP.
+        /// </summary>
+        /// <param name="request">Dữ liệu khách hàng và OTP.</param>
+        /// <returns>Phản hồi cho biết kết quả tạo tài khoản.</returns>
+        [HttpPost("register")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CreateCustomer([FromBody] CreateCustomerWithOtpRequest request)
+        {
+            if (!ModelState.IsValid)
             {
-                Message = "Customer created successfully.",
-                PhoneNumber = createCustomer.PhoneNumber
+                return BadRequest(ModelState);
+            }
+
+            await _customerService.CreateCustomerAsync(request.CreateCustomer, request.Otp);
+            return Created($"api/customers/{request.CreateCustomer.PhoneNumber}", new
+            {
+                Message = "Tạo tài khoản thành công.",
+                PhoneNumber = request.CreateCustomer.PhoneNumber
             });
         }
 
         /// <summary>
-        /// Authenticates a customer with the provided phone number and password.
+        /// Đăng nhập khách hàng với số điện thoại và mật khẩu.
         /// </summary>
-        /// <param name="loginCustomer">The login data including phone number and password.</param>
-        /// <returns>A response containing the JWT token and its expiration time.</returns>
+        /// <param name="loginCustomer">Dữ liệu đăng nhập gồm số điện thoại và mật khẩu.</param>
+        /// <returns>Phản hồi chứa token JWT và thời gian hết hạn.</returns>
         [HttpPost("login")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Login([FromBody] LoginCustomer loginCustomer)
         {
             if (!ModelState.IsValid)
             {
-                throw new ArgumentException("Invalid login data.");
+                return BadRequest(ModelState);
             }
 
             var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -64,123 +85,225 @@ namespace Backend.Controllers
         }
 
         /// <summary>
-        /// Updates the customer's avatar.
+        /// Gửi yêu cầu sinh OTP để khôi phục mật khẩu.
         /// </summary>
-        /// <returns>The public URL of the updated avatar.</returns>
+        /// <param name="request">Số điện thoại để sinh OTP.</param>
+        /// <returns>Phản hồi cho biết OTP đã được sinh.</returns>
+        [HttpPost("password/reset/otp")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> GenerateOtpForPasswordRecovery([FromBody] GenerateOtpRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            await _customerService.GenerateOtpForPasswordRecoveryAsync(request.PhoneNumber);
+            return Ok(new { Message = "OTP cho khôi phục mật khẩu đã được sinh và in ra console." });
+        }
+
+        /// <summary>
+        /// Đặt lại mật khẩu sau khi xác thực OTP.
+        /// </summary>
+        /// <param name="request">Số điện thoại, OTP và mật khẩu mới.</param>
+        /// <returns>Phản hồi cho biết kết quả đặt lại mật khẩu.</returns>
+        [HttpPost("password/reset")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            await _customerService.ResetPasswordAsync(request.PhoneNumber, request.Otp, request.NewPassword);
+            return Ok(new { Message = "Đặt lại mật khẩu thành công." });
+        }
+
+        /// <summary>
+        /// Cập nhật ảnh đại diện của khách hàng.
+        /// </summary>
+        /// <returns>URL công khai của ảnh đại diện đã cập nhật.</returns>
         [HttpPut("avatar")]
         [Authorize(Roles = "Customer")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> UpdateAvatar([FromForm] IFormFile file)
         {
             if (file == null || file.Length == 0)
             {
-                throw new ArgumentException("Invalid file data.");
+                return BadRequest("Dữ liệu file không hợp lệ.");
             }
 
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdClaim == null || !Guid.TryParse(userIdClaim, out Guid customerId))
             {
-                throw new UnauthorizedAccessException("Invalid user ID in token.");
+                return Unauthorized("ID người dùng trong token không hợp lệ.");
             }
 
             var avatarUrl = await _customerService.UpdateAvatarAsync(customerId, file);
-            return Ok(new { Message = "Avatar updated successfully.", AvatarUrl = avatarUrl });
+            return Ok(new { Message = "Cập nhật ảnh đại diện thành công.", AvatarUrl = avatarUrl });
         }
 
         /// <summary>
-        /// Updates customer attributes (CustomerName, DeliveryAddress, Email).
+        /// Cập nhật thông tin khách hàng (CustomerName, StandardShippingAddress, Email).
         /// </summary>
-        /// <param name="request">The customer data to update.</param>
-        /// <returns>A response indicating the result of the update operation.</returns>
+        /// <param name="request">Dữ liệu khách hàng cần cập nhật.</param>
+        /// <returns>Phản hồi cho biết kết quả cập nhật.</returns>
         [HttpPut]
         [Authorize(Roles = "Customer")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> UpdateCustomer([FromBody] UpdateCustomerRequest request)
         {
             if (!ModelState.IsValid)
             {
-                throw new ArgumentException("Invalid input data.");
+                return BadRequest("Dữ liệu đầu vào không hợp lệ.");
             }
 
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdClaim == null || !Guid.TryParse(userIdClaim, out Guid customerId))
             {
-                throw new UnauthorizedAccessException("Invalid user ID in token.");
+                return Unauthorized("ID người dùng trong token không hợp lệ.");
             }
 
             await _customerService.UpdateCustomerAsync(customerId, request);
-            return Ok(new { Message = "Customer updated successfully." });
+            return Ok(new { Message = "Cập nhật thông tin khách hàng thành công." });
         }
 
         /// <summary>
-        /// Deletes a customer by setting their status to inactive.
+        /// Xóa tài khoản khách hàng bằng cách đặt trạng thái thành không hoạt động.
         /// </summary>
-        /// <returns>A response indicating the result of the deletion operation.</returns>
+        /// <returns>Phản hồi cho biết kết quả xóa tài khoản.</returns>
         [HttpDelete]
         [Authorize(Roles = "Customer")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> DeleteCustomer()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdClaim == null || !Guid.TryParse(userIdClaim, out Guid customerId))
             {
-                throw new UnauthorizedAccessException("Invalid user ID in token.");
+                return Unauthorized("ID người dùng trong token không hợp lệ.");
             }
 
             await _customerService.DeleteCustomerAsync(customerId);
-            return Ok(new { Message = "Customer account deactivated successfully." });
+            return Ok(new { Message = "Tài khoản khách hàng đã được hủy kích hoạt thành công." });
         }
 
         /// <summary>
-        /// Changes the password of a customer.
+        /// Thay đổi mật khẩu của khách hàng.
         /// </summary>
-        /// <param name="request">The old and new password data.</param>
-        /// <returns>A response indicating the result of the password change operation.</returns>
+        /// <param name="request">Dữ liệu mật khẩu cũ và mới.</param>
+        /// <returns>Phản hồi cho biết kết quả thay đổi mật khẩu.</returns>
         [HttpPut("password")]
         [Authorize(Roles = "Customer")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
         {
             if (!ModelState.IsValid)
             {
-                throw new ArgumentException("Invalid input data.");
+                return BadRequest("Dữ liệu đầu vào không hợp lệ.");
             }
 
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdClaim == null || !Guid.TryParse(userIdClaim, out Guid customerId))
             {
-                throw new UnauthorizedAccessException("Invalid user ID in token.");
+                return Unauthorized("ID người dùng trong token không hợp lệ.");
             }
 
             await _customerService.ChangePasswordAsync(customerId, request);
-            return Ok(new { Message = "Password changed successfully." });
+            return Ok(new { Message = "Thay đổi mật khẩu thành công." });
         }
 
         /// <summary>
-        /// Gets the current customer's information based on the JWT token.
+        /// Đăng xuất khỏi thiết bị hiện tại.
         /// </summary>
-        /// <returns>The current customer's information.</returns>
+        /// <returns>Phản hồi cho biết kết quả đăng xuất.</returns>
+        [HttpPost("logout")]
+        [Authorize(Roles = "Customer")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> LogoutCurrentDevice()
+        {
+            var token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            if (string.IsNullOrEmpty(token))
+            {
+                return BadRequest("Không có token được cung cấp.");
+            }
+
+            await _customerService.LogoutCurrentDeviceAsync(token);
+            return Ok(new { Message = "Đăng xuất thành công khỏi thiết bị hiện tại." });
+        }
+
+        /// <summary>
+        /// Đăng xuất khỏi tất cả các thiết bị khác trừ thiết bị hiện tại.
+        /// </summary>
+        /// <returns>Phản hồi cho biết kết quả đăng xuất.</returns>
+        [HttpPost("logout/other-devices")]
+        [Authorize(Roles = "Customer")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> LogoutAllOtherDevices()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userIdClaim == null)
+            {
+                return Unauthorized("ID người dùng trong token không hợp lệ.");
+            }
+
+            var token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+            var tokenHandler = new JwtSecurityTokenHandler();
+            if (!tokenHandler.CanReadToken(token))
+            {
+                return BadRequest("Định dạng token không hợp lệ.");
+            }
+
+            var jwtToken = tokenHandler.ReadJwtToken(token);
+            var jtiClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value;
+            if (jtiClaim == null)
+            {
+                return BadRequest("Token không chứa JTI.");
+            }
+
+            await _customerService.LogoutAllOtherDevicesAsync(userIdClaim, jtiClaim);
+            return Ok(new { Message = "Đăng xuất thành công khỏi tất cả các thiết bị khác." });
+        }
+
+        /// <summary>
+        /// Lấy thông tin khách hàng hiện tại dựa trên token JWT.
+        /// </summary>
+        /// <returns>Thông tin khách hàng hiện tại.</returns>
         [HttpGet("me")]
         [Authorize(Roles = "Customer")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> GetCurrentCustomerInfo()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdClaim == null)
             {
-                throw new UnauthorizedAccessException("Invalid user ID in token.");
+                return Unauthorized("ID người dùng trong token không hợp lệ.");
             }
             var customerInfo = await _customerService.GetCustomerInfoByTokenAsync(userIdClaim);
             return Ok(customerInfo);
         }
 
         /// <summary>
-        /// Gets all customers' information (for administrators only).
+        /// Lấy thông tin tất cả khách hàng (chỉ dành cho quản trị viên).
         /// </summary>
-        /// <returns>A list of all customers' information.</returns>
+        /// <returns>Danh sách thông tin tất cả khách hàng.</returns>
         [HttpGet]
         [Authorize(Roles = "Administrator")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> GetAllCustomers()
         {
             var customers = await _customerService.GetAllCustomersAsync();
