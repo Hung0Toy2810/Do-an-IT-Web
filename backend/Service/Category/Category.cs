@@ -1,10 +1,12 @@
 using Backend.Model.Entity;
 using Backend.Repository.CategoryRepository;
 using Backend.Model.dto.Category;
+using Backend.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+
 
 namespace Backend.Service.CategoryService
 {
@@ -12,11 +14,13 @@ namespace Backend.Service.CategoryService
     {
         Task CreateCategoryAsync(CreateCategoryDto createCategory);
         Task<CategoryDto> GetCategoryByIdAsync(long id);
+        Task<CategoryDto> GetCategoryBySlugAsync(string slug);
         Task<List<CategoryDto>> GetAllCategoriesAsync();
         Task UpdateCategoryAsync(long id, UpdateCategoryDto updateCategory);
         Task DeleteCategoryAsync(long id);
         Task CreateSubCategoryAsync(CreateSubCategoryDto createSubCategory);
         Task<SubCategoryDto> GetSubCategoryByIdAsync(long id);
+        Task<SubCategoryDto> GetSubCategoryBySlugAsync(long categoryId, string slug);
         Task<List<SubCategoryDto>> GetSubCategoriesByCategoryIdAsync(long categoryId);
         Task UpdateSubCategoryAsync(long id, UpdateSubCategoryDto updateSubCategory);
         Task DeleteSubCategoryAsync(long id);
@@ -42,9 +46,14 @@ namespace Backend.Service.CategoryService
             if (await _categoryRepository.IsCategoryNameTakenAsync(createCategory.Name))
                 throw new InvalidOperationException("A category with this name already exists.");
 
+            var slug = SlugHelper.GenerateSlug(createCategory.Name);
+            if (await _categoryRepository.IsCategorySlugTakenAsync(slug))
+                throw new InvalidOperationException("A category with this slug already exists.");
+
             var category = new Category
             {
-                Name = createCategory.Name
+                Name = createCategory.Name,
+                Slug = slug
             };
 
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -70,10 +79,33 @@ namespace Backend.Service.CategoryService
             {
                 Id = category.Id,
                 Name = category.Name,
+                Slug = category.Slug,
                 SubCategories = category.SubCategories.Select(sc => new SubCategoryDto
                 {
                     Id = sc.Id,
                     Name = sc.Name,
+                    Slug = sc.Slug,
+                    CategoryId = sc.CategoryId
+                }).ToList()
+            };
+        }
+
+        public async Task<CategoryDto> GetCategoryBySlugAsync(string slug)
+        {
+            var category = await _categoryRepository.GetCategoryBySlugAsync(slug);
+            if (category == null)
+                throw new ArgumentException("Category not found.");
+
+            return new CategoryDto
+            {
+                Id = category.Id,
+                Name = category.Name,
+                Slug = category.Slug,
+                SubCategories = category.SubCategories.Select(sc => new SubCategoryDto
+                {
+                    Id = sc.Id,
+                    Name = sc.Name,
+                    Slug = sc.Slug,
                     CategoryId = sc.CategoryId
                 }).ToList()
             };
@@ -86,10 +118,12 @@ namespace Backend.Service.CategoryService
             {
                 Id = c.Id,
                 Name = c.Name,
+                Slug = c.Slug,
                 SubCategories = c.SubCategories.Select(sc => new SubCategoryDto
                 {
                     Id = sc.Id,
                     Name = sc.Name,
+                    Slug = sc.Slug,
                     CategoryId = sc.CategoryId
                 }).ToList()
             }).ToList();
@@ -104,13 +138,23 @@ namespace Backend.Service.CategoryService
             if (category == null)
                 throw new ArgumentException("Category not found.");
 
-            if (await _categoryRepository.IsCategoryNameTakenAsync(updateCategory.Name) && updateCategory.Name != category.Name)
-                throw new InvalidOperationException("A category with this name already exists.");
+            // Check nếu Name thay đổi
+            if (updateCategory.Name != category.Name)
+            {
+                if (await _categoryRepository.IsCategoryNameTakenAsync(updateCategory.Name))
+                    throw new InvalidOperationException("A category with this name already exists.");
+
+                var newSlug = SlugHelper.GenerateSlug(updateCategory.Name);
+                if (await _categoryRepository.IsCategorySlugTakenAsync(newSlug))
+                    throw new InvalidOperationException("A category with this slug already exists.");
+
+                category.Name = updateCategory.Name;
+                category.Slug = newSlug;
+            }
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                category.Name = updateCategory.Name;
                 await _categoryRepository.UpdateCategoryAsync(category);
                 await transaction.CommitAsync();
             }
@@ -155,9 +199,14 @@ namespace Backend.Service.CategoryService
             if (await _categoryRepository.IsSubCategoryNameTakenAsync(createSubCategory.CategoryId, createSubCategory.Name))
                 throw new InvalidOperationException("A subcategory with this name already exists in the category.");
 
+            var slug = SlugHelper.GenerateSlug(createSubCategory.Name);
+            if (await _categoryRepository.IsSubCategorySlugTakenAsync(createSubCategory.CategoryId, slug))
+                throw new InvalidOperationException("A subcategory with this slug already exists in the category.");
+
             var subCategory = new SubCategory
             {
                 Name = createSubCategory.Name,
+                Slug = slug,
                 CategoryId = createSubCategory.CategoryId
             };
 
@@ -184,6 +233,22 @@ namespace Backend.Service.CategoryService
             {
                 Id = subCategory.Id,
                 Name = subCategory.Name,
+                Slug = subCategory.Slug,
+                CategoryId = subCategory.CategoryId
+            };
+        }
+
+        public async Task<SubCategoryDto> GetSubCategoryBySlugAsync(long categoryId, string slug)
+        {
+            var subCategory = await _categoryRepository.GetSubCategoryBySlugAsync(categoryId, slug);
+            if (subCategory == null)
+                throw new ArgumentException("SubCategory not found.");
+
+            return new SubCategoryDto
+            {
+                Id = subCategory.Id,
+                Name = subCategory.Name,
+                Slug = subCategory.Slug,
                 CategoryId = subCategory.CategoryId
             };
         }
@@ -199,6 +264,7 @@ namespace Backend.Service.CategoryService
             {
                 Id = sc.Id,
                 Name = sc.Name,
+                Slug = sc.Slug,
                 CategoryId = sc.CategoryId
             }).ToList();
         }
@@ -212,18 +278,47 @@ namespace Backend.Service.CategoryService
             if (subCategory == null)
                 throw new ArgumentException("SubCategory not found.");
 
-            var category = await _categoryRepository.GetCategoryByIdAsync(updateSubCategory.CategoryId);
-            if (category == null)
-                throw new ArgumentException("Category not found.");
+            // Kiểm tra category mới có tồn tại không
+            var newCategory = await _categoryRepository.GetCategoryByIdAsync(updateSubCategory.CategoryId);
+            if (newCategory == null)
+                throw new ArgumentException("New category not found.");
 
-            if (await _categoryRepository.IsSubCategoryNameTakenAsync(updateSubCategory.CategoryId, updateSubCategory.Name) && updateSubCategory.Name != subCategory.Name)
-                throw new InvalidOperationException("A subcategory with this name already exists in the category.");
+            // Check nếu Name hoặc CategoryId thay đổi
+            bool nameChanged = updateSubCategory.Name != subCategory.Name;
+            bool categoryChanged = updateSubCategory.CategoryId != subCategory.CategoryId;
+
+            if (nameChanged || categoryChanged)
+            {
+                // Check name conflict trong category đích
+                if (await _categoryRepository.IsSubCategoryNameTakenAsync(updateSubCategory.CategoryId, updateSubCategory.Name))
+                {
+                    // Nếu cùng SubCategory (không đổi CategoryId và Name giống nhau) thì OK
+                    if (!(updateSubCategory.CategoryId == subCategory.CategoryId && updateSubCategory.Name == subCategory.Name))
+                    {
+                        throw new InvalidOperationException("A subcategory with this name already exists in the target category.");
+                    }
+                }
+
+                var newSlug = SlugHelper.GenerateSlug(updateSubCategory.Name);
+                
+                // Check slug conflict trong category đích
+                if (await _categoryRepository.IsSubCategorySlugTakenAsync(updateSubCategory.CategoryId, newSlug))
+                {
+                    // Nếu cùng SubCategory (không đổi CategoryId và Slug giống nhau) thì OK
+                    if (!(updateSubCategory.CategoryId == subCategory.CategoryId && newSlug == subCategory.Slug))
+                    {
+                        throw new InvalidOperationException("A subcategory with this slug already exists in the target category.");
+                    }
+                }
+
+                subCategory.Name = updateSubCategory.Name;
+                subCategory.Slug = newSlug;
+                subCategory.CategoryId = updateSubCategory.CategoryId;
+            }
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                subCategory.Name = updateSubCategory.Name;
-                subCategory.CategoryId = updateSubCategory.CategoryId;
                 await _categoryRepository.UpdateSubCategoryAsync(subCategory);
                 await transaction.CommitAsync();
             }
@@ -263,10 +358,12 @@ namespace Backend.Service.CategoryService
             {
                 Id = c.Id,
                 Name = c.Name,
+                Slug = c.Slug,
                 SubCategories = c.SubCategories.Select(sc => new SubCategoryDto
                 {
                     Id = sc.Id,
                     Name = sc.Name,
+                    Slug = sc.Slug,
                     CategoryId = sc.CategoryId
                 }).ToList()
             }).ToList();

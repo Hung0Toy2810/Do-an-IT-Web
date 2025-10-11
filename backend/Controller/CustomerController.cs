@@ -242,19 +242,5 @@ namespace Backend.Controllers
             var customerInfo = await _customerService.GetCustomerInfoByTokenAsync(userIdClaim);
             return Ok(customerInfo);
         }
-
-        /// <summary>
-        /// Lấy thông tin tất cả khách hàng (chỉ dành cho quản trị viên).
-        /// </summary>
-        /// <returns>Danh sách thông tin tất cả khách hàng.</returns>
-        [HttpGet]
-        [Authorize(Roles = "Administrator")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<IActionResult> GetAllCustomers()
-        {
-            var customers = await _customerService.GetAllCustomersAsync();
-            return Ok(customers);
-        }
     }
 }

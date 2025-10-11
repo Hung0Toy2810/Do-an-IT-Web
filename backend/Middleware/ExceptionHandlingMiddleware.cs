@@ -1,3 +1,4 @@
+// Middleware/ExceptionHandlingMiddleware.cs - Updated
 using Backend.Exceptions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -46,9 +47,11 @@ namespace Backend.Middleware
                 Instance = context.Request.Path
             };
 
-            // PHẦN NÀY ĐỂ XỬ LÝ TỪNG LOẠI EXCEPTION
             switch (exception)
             {
+                case Backend.Exceptions.ValidationException validationEx:
+                    HandleValidationException(problemDetails, validationEx);
+                    break;
                 case AuthenticationException authEx:
                     HandleAuthenticationException(problemDetails, authEx);
                     break;
@@ -103,7 +106,6 @@ namespace Backend.Middleware
                 problemDetails.Detail = "An unexpected error occurred.";
             }
 
-            // Gán mã trạng thái HTTP và content type
             context.Response.StatusCode = problemDetails.Status ?? StatusCodes.Status500InternalServerError;
             context.Response.ContentType = "application/problem+json";
 
@@ -115,7 +117,15 @@ namespace Backend.Middleware
             await context.Response.WriteAsync(JsonSerializer.Serialize(problemDetails, jsonOptions));
         }
 
-        // Xử lý Authentication Exception (MỚI THÊM)
+        private void HandleValidationException(ProblemDetails problemDetails, Backend.Exceptions.ValidationException ex)
+        {
+            problemDetails.Status = StatusCodes.Status400BadRequest;
+            problemDetails.Title = "Validation Failed";
+            problemDetails.Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1";
+            problemDetails.Detail = ex.Message;
+            problemDetails.Extensions["errors"] = ex.Errors;
+        }
+
         private void HandleAuthenticationException(ProblemDetails problemDetails, AuthenticationException ex)
         {
             problemDetails.Status = StatusCodes.Status401Unauthorized;
@@ -124,7 +134,6 @@ namespace Backend.Middleware
             problemDetails.Detail = ex.Message;
         }
 
-        // Xử lý Not Found Exception
         private void HandleNotFoundException(ProblemDetails problemDetails, NotFoundException ex)
         {
             problemDetails.Status = StatusCodes.Status404NotFound;
@@ -133,7 +142,6 @@ namespace Backend.Middleware
             problemDetails.Detail = ex.Message;
         }
 
-        // Xử lý Business Rule Exception
         private void HandleBusinessRuleException(ProblemDetails problemDetails, BusinessRuleException ex)
         {
             problemDetails.Status = StatusCodes.Status422UnprocessableEntity;
@@ -142,7 +150,6 @@ namespace Backend.Middleware
             problemDetails.Detail = ex.Message;
         }
 
-        // Xử lý Unauthorized Exception
         private void HandleUnauthorizedAccessException(ProblemDetails problemDetails, UnauthorizedAccessException ex)
         {
             problemDetails.Status = StatusCodes.Status403Forbidden;
@@ -151,7 +158,6 @@ namespace Backend.Middleware
             problemDetails.Detail = ex.Message;
         }
 
-        // SecurityTokenExpiredException
         private void HandleSecurityTokenExpiredException(ProblemDetails problemDetails, SecurityTokenExpiredException ex)
         {
             problemDetails.Status = StatusCodes.Status401Unauthorized;
@@ -160,7 +166,6 @@ namespace Backend.Middleware
             problemDetails.Detail = "The token has expired. Please login again.";
         }
 
-        // SecurityTokenException
         private void HandleSecurityTokenException(ProblemDetails problemDetails, SecurityTokenException ex)
         {
             problemDetails.Status = StatusCodes.Status401Unauthorized;
@@ -169,7 +174,6 @@ namespace Backend.Middleware
             problemDetails.Detail = ex.Message;
         }
 
-        // ArgumentException
         private void HandleArgumentException(ProblemDetails problemDetails, ArgumentException ex)
         {
             problemDetails.Status = StatusCodes.Status400BadRequest;
@@ -178,7 +182,6 @@ namespace Backend.Middleware
             problemDetails.Detail = ex.Message;
         }
 
-        // Xử lý mặc định cho các lỗi không xác định
         private void HandleDefaultException(ProblemDetails problemDetails, Exception ex)
         {
             problemDetails.Status = StatusCodes.Status500InternalServerError;

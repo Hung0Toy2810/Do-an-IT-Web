@@ -81,32 +81,42 @@ namespace Backend.SQLDbContext
                 });
             });
 
-            // Cấu hình cho Category
+            // Category
             modelBuilder.Entity<Category>(entity =>
             {
-                // Index cho Name để tối ưu tìm kiếm, và ràng buộc unique
-                entity.HasIndex(e => e.Name)
-                    .IsUnique()
-                    .HasDatabaseName("IX_Category_Name");
+                entity.Property(e => e.Name)
+                    .HasMaxLength(200)
+                    .IsUnicode(true)
+                    .UseCollation("Vietnamese_CI_AS");
+
+                entity.Property(e => e.Slug)
+                    .HasMaxLength(200)
+                    .IsUnicode(false);
+
+                entity.HasIndex(e => e.Name).IsUnique().HasDatabaseName("IX_Category_Name");
+                entity.HasIndex(e => e.Slug).IsUnique().HasDatabaseName("IX_Category_Slug");
             });
 
-            // Cấu hình cho SubCategory
+            // SubCategory
             modelBuilder.Entity<SubCategory>(entity =>
             {
-                // Quan hệ 1-n với Category
+                entity.Property(e => e.Name)
+                    .HasMaxLength(200)
+                    .IsUnicode(true)
+                    .UseCollation("Vietnamese_CI_AS");
+
+                entity.Property(e => e.Slug)
+                    .HasMaxLength(200)
+                    .IsUnicode(false);
+
                 entity.HasOne(e => e.Category)
                     .WithMany(e => e.SubCategories)
                     .HasForeignKey(e => e.CategoryId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // Index cho Name để tối ưu tìm kiếm
-                entity.HasIndex(e => e.Name)
-                    .HasDatabaseName("IX_SubCategory_Name");
-
-                // Index composite cho CategoryId và Name, ràng buộc unique để tránh trùng tên subcategory trong cùng category
-                entity.HasIndex(e => new { e.CategoryId, e.Name })
-                    .IsUnique()
-                    .HasDatabaseName("IX_SubCategory_CategoryId_Name");
+                entity.HasIndex(e => e.Name).HasDatabaseName("IX_SubCategory_Name");
+                entity.HasIndex(e => new { e.CategoryId, e.Name }).IsUnique().HasDatabaseName("IX_SubCategory_CategoryId_Name");
+                entity.HasIndex(e => new { e.CategoryId, e.Slug }).IsUnique().HasDatabaseName("IX_SubCategory_CategoryId_Slug");
             });
 
             // Cấu hình cho Product

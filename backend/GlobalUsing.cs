@@ -37,3 +37,4 @@ global using Backend.Model.dto.Administrator;
 global using Backend.Model.dto.Customer;
 global using Backend.Model.dto.Shipment;
 global using Backend.Model.dto.Category;
+global using Backend.Exceptions;

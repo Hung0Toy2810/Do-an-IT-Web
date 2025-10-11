@@ -12,16 +12,20 @@ namespace Backend.Repository.CategoryRepository
         Task CreateCategoryAsync(Category category);
         Task<Category?> GetCategoryByIdAsync(long id);
         Task<Category?> GetCategoryByNameAsync(string name);
+        Task<Category?> GetCategoryBySlugAsync(string slug);
         Task<List<Category>> GetAllCategoriesAsync();
         Task UpdateCategoryAsync(Category category);
         Task DeleteCategoryAsync(long id);
         Task<bool> IsCategoryNameTakenAsync(string name);
+        Task<bool> IsCategorySlugTakenAsync(string slug);
         Task CreateSubCategoryAsync(SubCategory subCategory);
         Task<SubCategory?> GetSubCategoryByIdAsync(long id);
+        Task<SubCategory?> GetSubCategoryBySlugAsync(long categoryId, string slug);
         Task<List<SubCategory>> GetSubCategoriesByCategoryIdAsync(long categoryId);
         Task UpdateSubCategoryAsync(SubCategory subCategory);
         Task DeleteSubCategoryAsync(long id);
         Task<bool> IsSubCategoryNameTakenAsync(long categoryId, string name);
+        Task<bool> IsSubCategorySlugTakenAsync(long categoryId, string slug);
         Task<List<Category>> GetAllCategoriesWithSubCategoriesAsync();
     }
 
@@ -54,6 +58,13 @@ namespace Backend.Repository.CategoryRepository
                 .FirstOrDefaultAsync(c => c.Name == name);
         }
 
+        public async Task<Category?> GetCategoryBySlugAsync(string slug)
+        {
+            return await _context.Categories
+                .Include(c => c.SubCategories)
+                .FirstOrDefaultAsync(c => c.Slug == slug);
+        }
+
         public async Task<List<Category>> GetAllCategoriesAsync()
         {
             return await _context.Categories
@@ -82,6 +93,11 @@ namespace Backend.Repository.CategoryRepository
             return await _context.Categories.AnyAsync(c => c.Name == name);
         }
 
+        public async Task<bool> IsCategorySlugTakenAsync(string slug)
+        {
+            return await _context.Categories.AnyAsync(c => c.Slug == slug);
+        }
+
         public async Task CreateSubCategoryAsync(SubCategory subCategory)
         {
             await _context.SubCategories.AddAsync(subCategory);
@@ -92,7 +108,15 @@ namespace Backend.Repository.CategoryRepository
         {
             return await _context.SubCategories
                 .Include(sc => sc.Category)
+                .Include(sc => sc.Products)
                 .FirstOrDefaultAsync(sc => sc.Id == id);
+        }
+
+        public async Task<SubCategory?> GetSubCategoryBySlugAsync(long categoryId, string slug)
+        {
+            return await _context.SubCategories
+                .Include(sc => sc.Category)
+                .FirstOrDefaultAsync(sc => sc.CategoryId == categoryId && sc.Slug == slug);
         }
 
         public async Task<List<SubCategory>> GetSubCategoriesByCategoryIdAsync(long categoryId)
@@ -123,6 +147,12 @@ namespace Backend.Repository.CategoryRepository
         {
             return await _context.SubCategories
                 .AnyAsync(sc => sc.CategoryId == categoryId && sc.Name == name);
+        }
+
+        public async Task<bool> IsSubCategorySlugTakenAsync(long categoryId, string slug)
+        {
+            return await _context.SubCategories
+                .AnyAsync(sc => sc.CategoryId == categoryId && sc.Slug == slug);
         }
 
         public async Task<List<Category>> GetAllCategoriesWithSubCategoriesAsync()

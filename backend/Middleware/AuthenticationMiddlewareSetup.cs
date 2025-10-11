@@ -102,6 +102,13 @@ namespace Backend.Middleware
 
                                     logger.LogDebug("Valid session found for JTI {Jti} and UserId {UserId}", jti, userId);
                                 }
+
+                                // Kiểm tra role claims có hợp lệ không
+                                var roleClaims = context.Principal?.FindAll(ClaimTypes.Role);
+                                if (roleClaims == null || !roleClaims.Any())
+                                {
+                                    logger.LogWarning("Token for user {UserId} has no role claims", userId);
+                                }
                             }
                             catch (AuthenticationException)
                             {
@@ -125,6 +132,45 @@ namespace Backend.Middleware
                             logger.LogError(context.Exception, "Authentication failed: {Message}", context.Exception.Message);
                             
                             return Task.CompletedTask;
+                        },
+                        OnChallenge = context =>
+                        {
+                            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<JwtBearerEvents>>();
+                            
+                            logger.LogWarning("Authorization challenge at {Path}: {Error}", 
+                                context.Request.Path, 
+                                context.ErrorDescription ?? "No token provided");
+                            
+                            // Chặn response mặc định và throw exception để middleware xử lý
+                            context.HandleResponse();
+                            throw new AuthenticationException("Unauthorized. Please provide a valid authentication token.");
+                        },
+                        OnForbidden = context =>
+                        {
+                            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<JwtBearerEvents>>();
+                            
+                            // Lấy thông tin user và role
+                            var userId = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                            var userRoles = context.Principal?.FindAll(ClaimTypes.Role)
+                                .Select(c => c.Value)
+                                .ToList() ?? new List<string>();
+                            
+                            var endpoint = context.HttpContext.GetEndpoint();
+                            var authorizeData = endpoint?.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.IAuthorizeData>();
+                            var requiredRoles = authorizeData?.Roles;
+                            
+                            logger.LogWarning(
+                                "Authorization forbidden for user {UserId} with roles [{Roles}] accessing {Path}. Required roles: {RequiredRoles}",
+                                userId ?? "Unknown",
+                                string.Join(", ", userRoles),
+                                context.Request.Path,
+                                requiredRoles ?? "Not specified"
+                            );
+                            
+                            // Chặn response mặc định và throw exception để middleware xử lý
+                            throw new UnauthorizedAccessException(
+                                $"You don't have permission to access this resource. Required roles: {requiredRoles ?? "Not specified"}. Your roles: {string.Join(", ", userRoles)}"
+                            );
                         }
                     };
                 });
