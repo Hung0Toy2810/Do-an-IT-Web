@@ -1,27 +1,26 @@
-import ProductSectionDemo from './Component/ProductSection';
-import HeroBannerCarousel from './Component/HeroBanner';
-import AppleStyleNavbar from './Component/Header_and_navbar';
-import FooterDemo from "./Component/Footer";
+// ==================== App.tsx ====================
+import React, { useState } from 'react';
+import NotificationProvider from './components/NotificationProvider';
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
-import ProductDetailDemo from './Component/ProductDetail';
-import ShoppingCart from './Component/Cart';
+import { PageType } from './types';
 
-function App() {
+export default function App() {
+  const [currentPage, setCurrentPage] = useState<PageType>('home');
+
+  const handleNavigate = (page: PageType) => {
+    setCurrentPage(page);
+    window.scrollTo(0, 0);
+  };
+
   return (
-    <div className="min-h-screen mx-auto bg-gray-100">
-      {/* Navbar */}
-      <AppleStyleNavbar />
-      {/* Hero Banner thường chiếm toàn bộ chiều ngang */}
-      <HeroBannerCarousel />
-      {/* Product Section */}
-      <ProductSectionDemo />
-      {/* Footer */}
-      {/* <ProfilePage onNavigate={(page) => alert(`Navigate to ${page}`)} /> */}
-      <ProductDetailDemo/>
-      <ShoppingCart />
-
-      <FooterDemo />
-    </div>
-  )
+    <NotificationProvider>
+      {currentPage === 'home' && <HomePage onNavigate={handleNavigate} />}
+      {currentPage === 'login' && <LoginPage onNavigate={handleNavigate} />}
+      {currentPage === 'register' && <RegisterPage onNavigate={handleNavigate} />}
+      {currentPage === 'profile' && <ProfilePage onNavigate={handleNavigate} />}
+    </NotificationProvider>
+  );
 }
-export default App;

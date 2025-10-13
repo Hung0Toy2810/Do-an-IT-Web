@@ -1,139 +1,28 @@
+// ==================== components/HeaderAndNavbar.tsx ====================
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { 
   ChevronDown, 
-  Smartphone, 
-  Headphones, 
-  Battery, 
-  Cable, 
-  Sparkles, 
-  TrendingUp, 
-  Gift,
   Menu,
   X,
   ShoppingCart,
   User,
   Search
 } from 'lucide-react';
+import { PageType } from '../types';
+import { mockMenuData } from '../data/menuData';
+import { isTokenValid } from '../utils/auth';
 
-// Types
-interface NavItem {
-  name: string;
-  link: string;
-  icon?: React.ElementType;
+interface HeaderAndNavbarProps {
+  onNavigate: (page: PageType) => void;
 }
 
-interface Category {
-  title: string;
-  icon: React.ElementType;
-  items: NavItem[];
-}
-
-interface MenuItem {
-  title: string;
-  link?: string;
-  noDropdown?: boolean;
-  mega?: boolean;
-  categories?: Category[];
-  items?: NavItem[];
-  icon?: React.ElementType;
-}
-
-// Mock API data
-const mockMenuData: MenuItem[] = [
-  {
-    title: 'Trang chủ',
-    link: '#',
-    noDropdown: true,
-  },
-  {
-    title: 'Mua sắm',
-    mega: true,
-    categories: [
-      {
-        title: 'Ốp lưng & Bảo vệ',
-        icon: Smartphone,
-        items: [
-          { name: 'Ốp lưng iPhone', link: '#' },
-          { name: 'Ốp lưng Samsung', link: '#' },
-          { name: 'Ốp lưng Xiaomi', link: '#' },
-          { name: 'Ốp lưng Oppo', link: '#' },
-          { name: 'Kính cường lực', link: '#' },
-          { name: 'Dán PPF', link: '#' },
-        ],
-      },
-      {
-        title: 'Tai nghe',
-        icon: Headphones,
-        items: [
-          { name: 'Tai nghe True Wireless', link: '#' },
-          { name: 'Tai nghe ANC', link: '#' },
-          { name: 'Tai nghe có dây', link: '#' },
-          { name: 'Tai nghe Gaming', link: '#' },
-          { name: 'Phụ kiện tai nghe', link: '#' },
-          { name: 'Eartips & foam', link: '#' },
-        ],
-      },
-      {
-        title: 'Sạc & Pin',
-        icon: Battery,
-        items: [
-          { name: 'Sạc nhanh GaN', link: '#' },
-          { name: 'Sạc không dây', link: '#' },
-          { name: 'Sạc dự phòng', link: '#' },
-          { name: 'Cáp sạc Type-C', link: '#' },
-          { name: 'Cáp Lightning', link: '#' },
-          { name: 'Adapter đa năng', link: '#' },
-        ],
-      },
-      {
-        title: 'Phụ kiện khác',
-        icon: Cable,
-        items: [
-          { name: 'Giá đỡ điện thoại', link: '#' },
-          { name: 'Túi chống nước', link: '#' },
-          { name: 'Gậy Selfie', link: '#' },
-          { name: 'Đèn LED ring', link: '#' },
-          { name: 'Thiết bị mạng', link: '#' },
-          { name: 'Camera hành trình', link: '#' },
-        ],
-      },
-    ],
-  },
-  {
-    title: 'Blogs',
-    link: '#',
-    noDropdown: true,
-  },
-  {
-    title: 'Flash Sales',
-    icon: TrendingUp,
-    items: [
-      { name: 'Giảm giá hôm nay', link: '#', icon: Gift },
-      { name: 'Deal hot trong tuần', link: '#', icon: TrendingUp },
-      { name: 'Sản phẩm mới', link: '#', icon: Sparkles },
-    ],
-  },
-  {
-    title: 'Hỗ trợ',
-    items: [
-      { name: 'Về chúng tôi', link: '#' },
-      { name: 'Liên hệ', link: '#' },
-      { name: 'Hệ thống cửa hàng', link: '#' },
-      { name: 'Chính sách bảo hành', link: '#' },
-      { name: 'Hướng dẫn mua hàng', link: '#' },
-    ],
-  },
-];
-
-// Main Navbar Component
-export default function AppleStyleNavbar() {
+export default function HeaderAndNavbar({ onNavigate }: HeaderAndNavbarProps) {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [expandedMobileMenu, setExpandedMobileMenu] = useState<string | null>(null);
-  const [cartCount, setCartCount] = useState(3);
+  const [cartCount] = useState(3);
   const leaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Ngăn cuộn trang chính khi dropdown hoặc mobile menu mở
   useEffect(() => {
     if (activeMenu || isMobileMenuOpen) {
       document.body.style.overflow = 'hidden';
@@ -145,7 +34,6 @@ export default function AppleStyleNavbar() {
     };
   }, [activeMenu, isMobileMenuOpen]);
 
-  // Optimized hover handlers for desktop
   const handleMouseEnter = useCallback((menuTitle: string) => {
     if (leaveTimeoutRef.current) {
       clearTimeout(leaveTimeoutRef.current);
@@ -160,7 +48,6 @@ export default function AppleStyleNavbar() {
     }, 300);
   }, []);
 
-  // Mobile menu handlers
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
     setExpandedMobileMenu(null);
@@ -170,25 +57,26 @@ export default function AppleStyleNavbar() {
     setExpandedMobileMenu(expandedMobileMenu === title ? null : title);
   };
 
-  // Ngăn sự kiện cuộn lan truyền
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.stopPropagation();
   };
 
+  const handleUserClick = () => {
+    onNavigate(isTokenValid() ? 'profile' : 'login');
+  };
+
   return (
     <div className="sticky top-0 z-50 w-full font-sans bg-white shadow" style={{ fontFamily: 'Roboto, -apple-system, BlinkMacSystemFont, sans-serif' }}>
-      {/* Header (Top Bar) */}
+      {/* Header */}
       <div className="sticky top-0 z-50 bg-white border-b border-gray-200/80">
         <div className="max-w-screen-xl px-4 mx-auto sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
             <div className="flex items-center">
               <a href="#" className="text-2xl font-bold text-violet-900">
                 PhoneCare
               </a>
             </div>
 
-            {/* Desktop Search Bar & Actions */}
             <div className="items-center justify-end flex-1 hidden gap-4 ml-8 md:flex">
               <div className="relative flex-1 max-w-2xl">
                 <Search className="absolute w-5 h-5 text-gray-400 -translate-y-1/2 pointer-events-none left-4 top-1/2" />
@@ -214,6 +102,7 @@ export default function AppleStyleNavbar() {
                 )}
               </button>
               <button 
+                onClick={handleUserClick}
                 className="p-2.5 text-gray-900 hover:text-violet-800 hover:bg-violet-50 transition-all"
                 style={{ borderRadius: '10px' }}
               >
@@ -221,7 +110,6 @@ export default function AppleStyleNavbar() {
               </button>
             </div>
 
-            {/* Mobile Menu Button */}
             <button
               onClick={toggleMobileMenu}
               className="md:hidden p-2.5 text-gray-900 hover:text-violet-800 hover:bg-violet-50 transition-all"
@@ -233,7 +121,7 @@ export default function AppleStyleNavbar() {
         </div>
       </div>
 
-      {/* Desktop Navigation Bar */}
+      {/* Navigation */}
       <nav className="relative z-40 hidden text-white shadow-lg md:block bg-gradient-to-r from-violet-700 to-violet-800">
         <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
           <ul className="flex items-center justify-center gap-1">
@@ -259,7 +147,6 @@ export default function AppleStyleNavbar() {
                   </button>
                 )}
 
-                {/* Mega Dropdown */}
                 {activeMenu === menu.title && menu.mega && (
                   <div 
                     className="fixed left-1/2 -translate-x-1/2 bg-white text-gray-800 shadow-2xl py-6 px-6 z-[100] border border-violet-100/50 overflow-y-auto"
@@ -277,16 +164,9 @@ export default function AppleStyleNavbar() {
                   >
                     <div className="flex gap-6 mb-5">
                       {menu.categories?.map((category, idx) => {
-                        const IconComponent = category.icon;
                         return (
                           <div key={idx} className="flex flex-col">
-                            <div className="flex items-center gap-2 px-2 pb-2.5 mb-2.5 border-b border-violet-100 w-fit">
-                              <div 
-                                className="flex items-center justify-center flex-shrink-0 w-8 h-8 transition-transform bg-gradient-to-br from-violet-600 to-violet-800 hover:scale-110"
-                                style={{ borderRadius: '10px' }}
-                              >
-                                <IconComponent className="w-4 h-4 text-white" />
-                              </div>
+                            <div className="pb-2.5 mb-2.5 border-b border-violet-100">
                               <h3 className="text-sm font-bold text-violet-900 whitespace-nowrap">{category.title}</h3>
                             </div>
                             <div className="flex flex-col gap-0.5">
@@ -325,7 +205,6 @@ export default function AppleStyleNavbar() {
                   </div>
                 )}
 
-                {/* Regular Dropdown */}
                 {activeMenu === menu.title && !menu.mega && (
                   <div 
                     className="absolute top-full left-0 bg-white text-gray-800 shadow-2xl py-2 px-2 z-[100] border border-violet-100/50 overflow-y-auto"
@@ -455,6 +334,10 @@ export default function AppleStyleNavbar() {
                 <span className="text-sm">Giỏ hàng</span>
               </button>
               <button 
+                onClick={() => {
+                  toggleMobileMenu();
+                  handleUserClick();
+                }}
                 className="flex items-center justify-center flex-1 gap-2 p-3 font-medium text-white transition-all bg-violet-800 hover:bg-violet-900"
                 style={{ borderRadius: '12px' }}
               >

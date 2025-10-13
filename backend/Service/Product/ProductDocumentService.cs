@@ -1,4 +1,3 @@
-// Service/ProductDocumentService.cs
 using Backend.Model.dto.Product;
 using Backend.Model.Nosql;
 using Backend.Repository.Product;
@@ -20,9 +19,23 @@ namespace Backend.Service.Product
         Task<ProductCardDto?> GetProductCardBySlugAsync(string productSlug);
         Task<VariantInfoDto?> GetVariantInfoAsync(long productId, string variantSlug);
         Task<VariantInfoDto?> GetVariantInfoAsync(string productSlug, string variantSlug);
-        // NEW METHODS
         Task<bool> UpdateVariantPriceAsync(string productSlug, string variantSlug, decimal originalPrice, decimal discountedPrice);
         Task<bool> UpdateIsDiscontinuedAsync(string productSlug, bool isDiscontinued);
+
+        // Search methods
+        Task<List<long>> SearchProductIdsByKeywordAsync(string keyword);
+        Task<List<ProductDocument>> SearchProductsWithFiltersAsync(
+            List<long> productIds, 
+            decimal? minPrice, 
+            decimal? maxPrice);
+        
+        // THÊM 2 METHODS MỚI CHO SUBCATEGORY
+        Task<List<ProductDocument>> GetProductsByIdsWithBrandFilterAsync(
+            List<long> productIds, 
+            string? brand,
+            decimal? minPrice,
+            decimal? maxPrice);
+        Task<List<string>> GetBrandsByProductIdsAsync(List<long> productIds);
     }
 
     public class ProductDocumentService : IProductDocumentService
@@ -32,7 +45,7 @@ namespace Backend.Service.Product
         private readonly IFileRepository _fileRepository;
         private readonly IConfiguration _configuration;
         private const string ProductImagesBucket = "product-images";
-        private const long MaxImageSize = 2 * 1024 * 1024; // 2MB
+        private const long MaxImageSize = 2 * 1024 * 1024;
 
         public ProductDocumentService(
             IProductDocumentRepository repository,
@@ -69,15 +82,15 @@ namespace Backend.Service.Product
                 Brand = dto.Brand,
                 Description = dto.Description,
                 AttributeOptions = dto.AttributeOptions,
-                IsDiscontinued = false, // Mặc định: chưa ngừng kinh doanh
+                IsDiscontinued = false,
                 Variants = dto.Variants.Select(v => new ProductVariant
                 {
                     Slug = v.Slug,
                     Attributes = v.Attributes,
-                    Stock = 0, // New product, no stock yet
+                    Stock = 0,
                     OriginalPrice = v.OriginalPrice,
                     DiscountedPrice = v.DiscountedPrice,
-                    Images = new List<string>(), // No images yet
+                    Images = new List<string>(),
                     Specifications = v.Specifications.Select(s => new Specification
                     {
                         Label = s.Label,
@@ -145,14 +158,12 @@ namespace Backend.Service.Product
 
         public async Task<List<string>> UpdateVariantImagesAsync(string productSlug, string variantSlug, List<IFormFile> images)
         {
-            // Validate input
             if (images == null || images.Count == 0)
                 throw new ArgumentException("Images list cannot be null or empty", nameof(images));
 
             if (images.Count > 10)
                 throw new ArgumentException("Maximum 10 images allowed per variant", nameof(images));
 
-            // Get product and variant
             var product = await _repository.GetBySlugAsync(productSlug);
             if (product == null)
                 throw new Backend.Exceptions.NotFoundException($"Product with slug '{productSlug}' not found");
@@ -161,14 +172,12 @@ namespace Backend.Service.Product
             if (variant == null)
                 throw new Backend.Exceptions.NotFoundException($"Variant with slug '{variantSlug}' not found in product '{productSlug}'");
 
-            // Store old image URLs for cleanup
             var oldImageUrls = new List<string>(variant.Images);
             var uploadedFileKeys = new List<string>();
             var newImageUrls = new List<string>();
 
             try
             {
-                // Step 1: Upload all new images to MinIO
                 for (int i = 0; i < images.Count; i++)
                 {
                     var image = images[i];
@@ -190,27 +199,23 @@ namespace Backend.Service.Product
                     newImageUrls.Add(url);
                 }
 
-                // Step 2: Update variant images in MongoDB
                 variant.Images = newImageUrls;
                 bool updateSuccess = await _repository.UpdateAsync(product);
 
                 if (!updateSuccess)
                     throw new InvalidOperationException("Failed to update product in database");
 
-                // Step 3: Delete old images from MinIO (only after successful DB update)
                 await DeleteOldImagesAsync(oldImageUrls);
 
                 return newImageUrls;
             }
             catch
             {
-                // Rollback: Delete newly uploaded images from MinIO
                 await DeleteUploadedFilesAsync(uploadedFileKeys);
                 throw;
             }
         }
 
-        // HÀM MỚI: Cập nhật giá của một variant
         public async Task<bool> UpdateVariantPriceAsync(string productSlug, string variantSlug, decimal originalPrice, decimal discountedPrice)
         {
             if (originalPrice < 0)
@@ -236,7 +241,6 @@ namespace Backend.Service.Product
             return await _repository.UpdateAsync(product);
         }
 
-        // HÀM MỚI: Cập nhật trạng thái ngừng kinh doanh
         public async Task<bool> UpdateIsDiscontinuedAsync(string productSlug, bool isDiscontinued)
         {
             var product = await _repository.GetBySlugAsync(productSlug);
@@ -268,7 +272,6 @@ namespace Backend.Service.Product
                 }
                 catch (Exception ex)
                 {
-                    // Log error but don't throw - old images cleanup is not critical
                     Console.WriteLine($"Warning: Failed to delete old image {url}: {ex.Message}");
                 }
             }
@@ -356,6 +359,39 @@ namespace Backend.Service.Product
             };
         }
 
+        // Search methods - wrapper
+        public async Task<List<long>> SearchProductIdsByKeywordAsync(string keyword)
+        {
+            return await _repository.SearchProductIdsByKeywordAsync(keyword);
+        }
+
+        public async Task<List<ProductDocument>> SearchProductsWithFiltersAsync(
+            List<long> productIds,
+            decimal? minPrice,
+            decimal? maxPrice)
+        {
+            return await _repository.SearchProductsWithFiltersAsync(productIds, minPrice, maxPrice);
+        }
+
+        // ============================================================
+        // 2 METHODS MỚI CHO SUBCATEGORY
+        // ============================================================
+
+        public async Task<List<ProductDocument>> GetProductsByIdsWithBrandFilterAsync(
+            List<long> productIds,
+            string? brand,
+            decimal? minPrice,
+            decimal? maxPrice)
+        {
+            return await _repository.GetProductsByIdsWithBrandFilterAsync(
+                productIds, brand, minPrice, maxPrice);
+        }
+
+        public async Task<List<string>> GetBrandsByProductIdsAsync(List<long> productIds)
+        {
+            return await _repository.GetBrandsByProductIdsAsync(productIds);
+        }
+
         private async Task DeleteUploadedFilesAsync(List<string> fileKeys)
         {
             foreach (var fileKey in fileKeys)
@@ -366,7 +402,6 @@ namespace Backend.Service.Product
                 }
                 catch (Exception ex)
                 {
-                    // Log error but don't throw - cleanup is best effort
                     Console.WriteLine($"Warning: Failed to delete uploaded file {fileKey}: {ex.Message}");
                 }
             }

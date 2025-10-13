@@ -16,6 +16,8 @@ using System.Text;
 using Backend.Middleware;
 using Backend.Service.CategoryService;
 using Backend.Repository.CategoryRepository;
+using Backend.Service.Product;
+using Backend.Repository.Product;
 
 namespace Backend 
 {
@@ -58,14 +60,14 @@ namespace Backend
                         var redis = ConnectionMultiplexer.Connect(redisConfig);
                         services.AddSingleton<IConnectionMultiplexer>(redis);
 
-                        // Dùng ILoggerFactory từ DI thay vì BuildServiceProvider
+                        // Test kết nối và log
                         var loggerFactory = hostContext.HostingEnvironment.IsDevelopment()
                             ? services.BuildServiceProvider().GetService<ILoggerFactory>()
-                            : null; // Chỉ log trong dev, tránh ở production
+                            : null;
                         var logger = loggerFactory?.CreateLogger("Redis");
                         logger?.LogInformation("Successfully connected to Redis at {Host}:{Port}", configuration["Redis:Host"], configuration["Redis:Port"]);
                         var db = redis.GetDatabase();
-                        db.PingAsync().GetAwaiter().GetResult(); // Đồng bộ để test
+                        db.PingAsync().GetAwaiter().GetResult();
                         logger?.LogInformation("Redis ping successful");
                     }
                     catch (RedisConnectionException ex)
@@ -137,6 +139,11 @@ namespace Backend
                     services.AddScoped<IJwtTokenService, JwtTokenService>();
                     services.AddScoped<ICategoryRepository, CategoryRepository>();
                     services.AddScoped<ICategoryService, CategoryService>();
+                    services.AddScoped<IProductDocumentService, ProductDocumentService>();
+                    services.AddScoped<IProductService, ProductService>();
+                    services.AddScoped<IProductDocumentRepository, ProductDocumentRepository>();
+                    //ProductRepository
+                    services.AddScoped<IProductRepository, ProductRepository>();
                 })
                 .ConfigureWebHostDefaults(webBuilder =>
                 {

@@ -1,6 +1,6 @@
 import { Facebook, Instagram, Youtube, Mail, Phone, MapPin } from 'lucide-react';
 
-export default function FooterDemo() {
+export default function Footer() {
   return (
     <div className="flex flex-col bg-gray-50">
 

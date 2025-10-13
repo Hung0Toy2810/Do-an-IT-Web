@@ -1,5 +1,15 @@
 namespace Backend.Model.dto.Product
 {
+    public class CreateProductDto
+    {
+        public long SubCategoryId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Slug { get; set; } = string.Empty;
+        public string Brand { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public Dictionary<string, List<string>> AttributeOptions { get; set; } = new();
+        public List<CreateVariantDto> Variants { get; set; } = new();
+    }
     public class CreateProductDocumentDto
     {
         public long Id { get; set; }
@@ -45,5 +55,37 @@ namespace Backend.Model.dto.Product
         public string ProductName { get; set; } = string.Empty;
         public string? FirstImage { get; set; }
         public Dictionary<string, string> Attributes { get; set; } = new();
+    }
+    public class ProductSearchRequestDto
+    {
+        public string Keyword { get; set; } = string.Empty;
+        public bool? SortByPriceAscending { get; set; } // null = không sort, true = tăng dần, false = giảm dần
+        public decimal? MinPrice { get; set; }
+        public decimal? MaxPrice { get; set; }
+    }
+
+    public class ProductSearchResultDto
+    {
+        public List<long> ProductIds { get; set; } = new();
+        public int TotalCount { get; set; }
+    }
+    public class SubCategoryProductRequestDto
+    {
+        public string SubCategorySlug { get; set; } = string.Empty;
+        public bool? SortByPriceAscending { get; set; } // null = không sort
+        public decimal? MinPrice { get; set; }
+        public decimal? MaxPrice { get; set; }
+        public string? Brand { get; set; } // null = tất cả brand
+    }
+
+    public class SubCategoryProductResultDto
+    {
+        public List<long> ProductIds { get; set; } = new();
+        public int TotalCount { get; set; }
+    }
+
+    public class SubCategoryBrandResultDto
+    {
+        public List<string> Brands { get; set; } = new();
     }
 }

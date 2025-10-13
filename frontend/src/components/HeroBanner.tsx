@@ -14,41 +14,42 @@ interface BannerData {
 const bannerData: BannerData[] = [
   {
     id: 1,
-    title: 'Khám phá thế giới tri thức "không giới hạn" với công nghệ AI tiên tiến',
+    title: 'Khám phá thế giới phụ kiện "chính hãng", chất lượng "vượt trội"',
     description:
-      "Trải nghiệm nền tảng học tập thông minh với hàng ngàn khóa học chất lượng cao. Học mọi lúc, mọi nơi với phương pháp cá nhân hóa.",
-    image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=600&fit=crop",
-    primaryButtonText: "Bắt đầu ngay",
-    secondaryButtonText: "Tìm hiểu thêm",
+      "Từ ốp lưng, kính cường lực đến sạc nhanh - tất cả đều có tại cửa hàng chúng tôi. Hàng mới cập nhật mỗi ngày, mẫu mã đa dạng.",
+    image: "",
+    primaryButtonText: "Mua ngay",
+    secondaryButtonText: "Xem bộ sưu tập",
   },
   {
     id: 2,
-    title: 'Nâng cao kỹ năng "chuyên nghiệp" cùng đội ngũ giảng viên hàng đầu',
+    title: 'Phụ kiện "cao cấp" - bảo vệ "toàn diện" cho điện thoại của bạn',
     description:
-      "Được hướng dẫn bởi các chuyên gia hàng đầu trong ngành. Chứng chỉ được công nhận toàn cầu và cơ hội việc làm hấp dẫn.",
-    image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=600&fit=crop",
-    primaryButtonText: "Xem khóa học",
-    secondaryButtonText: "Liên hệ tư vấn",
+      "Chọn ốp chống sốc, bao da sang trọng hay dán PPF chống trầy. Giúp điện thoại của bạn luôn bền đẹp như mới.",
+    image: "",
+    primaryButtonText: "Khám phá ngay",
+    secondaryButtonText: "Xem chi tiết",
   },
   {
     id: 3,
-    title: 'Cộng đồng học tập "sôi động" và nhiệt huyết',
+    title: 'Âm thanh sống động - trải nghiệm "không giới hạn"',
     description:
-      "Kết nối với hàng nghìn học viên trên toàn quốc. Chia sẻ kiến thức, kinh nghiệm và cùng nhau phát triển mỗi ngày.",
-    image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=600&fit=crop",
-    primaryButtonText: "Tham gia ngay",
-    secondaryButtonText: "Khám phá",
+      "Tận hưởng âm nhạc với tai nghe Bluetooth, loa di động và micro chất lượng cao. Kết nối dễ dàng, âm thanh chân thực.",
+    image: "",
+    primaryButtonText: "Mua tai nghe",
+    secondaryButtonText: "Xem loa",
   },
   {
     id: 4,
-    title: 'Học tập linh hoạt "hiệu quả" theo lộ trình cá nhân',
+    title: 'Sạc nhanh - năng lượng "luôn đầy" mọi lúc mọi nơi',
     description:
-      "Tự do lựa chọn thời gian và tốc độ học phù hợp. Hệ thống theo dõi tiến độ thông minh giúp bạn đạt mục tiêu nhanh chóng.",
-    image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=600&fit=crop",
-    primaryButtonText: "Dùng thử miễn phí",
-    secondaryButtonText: "Xem demo",
+      "Sở hữu bộ sạc, pin dự phòng và cáp chính hãng. Tương thích mọi thiết bị, an toàn, bền bỉ, và sạc cực nhanh.",
+    image: "",
+    primaryButtonText: "Xem ngay",
+    secondaryButtonText: "Khuyến mãi hôm nay",
   },
 ];
+
 
 // Hero Banner Props
 interface HeroBannerCarouselProps {
