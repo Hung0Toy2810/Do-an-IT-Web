@@ -210,12 +210,16 @@ namespace Backend.Repository.Product
                 return new List<ProductDocument>();
 
             var filterBuilder = Builders<ProductDocument>.Filter;
-            var filter = filterBuilder.In(x => x.Id, productIds);
+            
+            // Filter cơ bản: productIds và IsDiscontinued = false
+            var filter = filterBuilder.And(
+                filterBuilder.In(x => x.Id, productIds),
+                filterBuilder.Eq(x => x.IsDiscontinued, false)
+            );
 
             // Nếu có filter giá
             if (minPrice.HasValue || maxPrice.HasValue)
             {
-                // Filter sản phẩm có ít nhất 1 variant thỏa mãn điều kiện giá
                 filter = filterBuilder.And(
                     filter,
                     filterBuilder.ElemMatch(x => x.Variants, variant =>
@@ -245,7 +249,8 @@ namespace Backend.Repository.Product
             var filterBuilder = Builders<ProductDocument>.Filter;
             var filters = new List<FilterDefinition<ProductDocument>>
             {
-                filterBuilder.In(x => x.Id, productIds)
+                filterBuilder.In(x => x.Id, productIds),
+                filterBuilder.Eq(x => x.IsDiscontinued, false)  // THÊM FILTER NÀY
             };
 
             // Filter theo Brand nếu có

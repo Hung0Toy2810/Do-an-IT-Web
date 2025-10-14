@@ -1,18 +1,15 @@
 // ==================== pages/ProfilePage.tsx ====================
 import React from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { PageType } from '../types';
+import { useNavigate } from 'react-router-dom';
 
-interface ProfilePageProps {
-  onNavigate: (page: PageType) => void;
-}
-
-export default function ProfilePage({ onNavigate }: ProfilePageProps) {
+export default function ProfilePage() {
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen px-4 py-6 bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50">
       <div className="container max-w-4xl mx-auto">
         <button
-          onClick={() => onNavigate('home')}
+          onClick={() => navigate('/')}
           className="flex items-center gap-2 px-4 py-2.5 mb-8 text-sm font-medium text-violet-800 transition-all bg-white hover:bg-violet-50 shadow-sm hover:shadow-md"
           style={{ borderRadius: '12px' }}
         >

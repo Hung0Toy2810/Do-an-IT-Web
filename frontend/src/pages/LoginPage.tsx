@@ -1,19 +1,16 @@
 // ==================== pages/LoginPage.tsx ====================
 import React, { useState } from 'react';
 import { ArrowLeft, Mail, User, Lock } from 'lucide-react';
-import { PageType } from '../types';
 import { setCookie } from '../utils/cookies';
 import { notify } from '../components/NotificationProvider';
+import { useNavigate } from 'react-router-dom';
 
-interface LoginPageProps {
-  onNavigate: (page: PageType) => void;
-}
 
-export default function LoginPage({ onNavigate }: LoginPageProps) {
+export default function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-
+  const navigate = useNavigate();
   const handleLogin = async () => {
     if (!phoneNumber || !password) {
       notify('warning', 'Vui lòng nhập đầy đủ thông tin');
@@ -40,7 +37,7 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
         setCookie('auth_token', data.token, 7);
         notify('success', data.message || 'Đăng nhập thành công!');
         setTimeout(() => {
-          onNavigate('home');
+          navigate('/');
         }, 1000);
       } else {
         notify('error', data.message || 'Đăng nhập thất bại');
@@ -63,7 +60,7 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
     <div className="min-h-screen px-4 py-6 bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 sm:py-12 sm:px-6 lg:px-8">
       <div className="container max-w-md mx-auto">
         <button
-          onClick={() => onNavigate('home')}
+          onClick={() => navigate('/')}
           className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 mb-6 sm:mb-8 text-xs sm:text-sm font-medium text-violet-800 transition-all bg-white hover:bg-violet-50 shadow-sm hover:shadow-md"
           style={{ borderRadius: '12px' }}
         >
@@ -160,7 +157,7 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
             <p className="text-xs font-medium text-gray-600 sm:text-sm">
               Chưa có tài khoản?{' '}
               <button
-                onClick={() => onNavigate('register')}
+                onClick={() => navigate('/register')}
                 className="font-semibold transition-colors text-violet-700 hover:text-violet-900"
               >
                 Đăng ký ngay

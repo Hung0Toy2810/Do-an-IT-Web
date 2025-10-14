@@ -60,7 +60,6 @@ namespace Backend.Service.Product
 
         public async Task<ProductDocument> CreateProductAsync(CreateProductDocumentDto dto)
         {
-            // Validate data integrity
             _validator.Validate(dto);
 
             // Check if product already exists
@@ -373,9 +372,6 @@ namespace Backend.Service.Product
             return await _repository.SearchProductsWithFiltersAsync(productIds, minPrice, maxPrice);
         }
 
-        // ============================================================
-        // 2 METHODS MỚI CHO SUBCATEGORY
-        // ============================================================
 
         public async Task<List<ProductDocument>> GetProductsByIdsWithBrandFilterAsync(
             List<long> productIds,

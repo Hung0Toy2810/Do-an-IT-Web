@@ -1,21 +1,18 @@
 // ==================== pages/RegisterPage.tsx ====================
 import React, { useState } from 'react';
 import { ArrowLeft, Mail, User, Lock, Shield } from 'lucide-react';
-import { PageType } from '../types';
 import { notify } from '../components/NotificationProvider'; // Sửa import
+import { useNavigate } from 'react-router-dom';
 
-interface RegisterPageProps {
-  onNavigate: (page: PageType) => void;
-}
 
-export default function RegisterPage({ onNavigate }: RegisterPageProps) {
+export default function RegisterPage() {
   const [step, setStep] = useState<1 | 2>(1);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
-
+  const navigate = useNavigate();
   const handleSendOtp = async () => {
     if (!phoneNumber) {
       notify('warning', 'Vui lòng nhập số điện thoại');
@@ -94,7 +91,7 @@ export default function RegisterPage({ onNavigate }: RegisterPageProps) {
       if (response.ok) {
         notify('success', 'Đăng ký thành công! Vui lòng đăng nhập');
         setTimeout(() => {
-          onNavigate('login');
+          navigate('/login');
         }, 1500);
       } else {
         notify('error', data.message || 'Đăng ký thất bại');
@@ -121,7 +118,7 @@ export default function RegisterPage({ onNavigate }: RegisterPageProps) {
     <div className="min-h-screen px-4 py-6 bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 sm:py-12 sm:px-6 lg:px-8">
       <div className="container max-w-md mx-auto">
         <button
-          onClick={() => onNavigate('home')}
+          onClick={() => navigate('/')}
           className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 mb-6 sm:mb-8 text-xs sm:text-sm font-medium text-violet-800 transition-all bg-white hover:bg-violet-50 shadow-sm hover:shadow-md"
           style={{ borderRadius: '12px' }}
         >
@@ -298,7 +295,7 @@ export default function RegisterPage({ onNavigate }: RegisterPageProps) {
             <p className="text-xs font-medium text-gray-600 sm:text-sm">
               Đã có tài khoản?{' '}
               <button
-                onClick={() => onNavigate('login')}
+                onClick={() => navigate('/login')}
                 className="font-semibold transition-colors text-violet-700 hover:text-violet-900"
               >
                 Đăng nhập ngay
