@@ -186,3 +186,7 @@
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/ref/backend.dll
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/bin/Debug/net9.0/Microsoft.Bcl.TimeProvider.dll
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/bin/Debug/net9.0/Newtonsoft.Json.dll
+/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/bin/Debug/net9.0/log4net.dll
+/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/bin/Debug/net9.0/Swashbuckle.AspNetCore.Swagger.dll
+/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/bin/Debug/net9.0/Swashbuckle.AspNetCore.SwaggerGen.dll
+/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/bin/Debug/net9.0/Swashbuckle.AspNetCore.SwaggerUI.dll

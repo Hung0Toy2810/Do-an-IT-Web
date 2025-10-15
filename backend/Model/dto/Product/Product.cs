@@ -88,4 +88,24 @@ namespace Backend.Model.dto.Product
     {
         public List<string> Brands { get; set; } = new();
     }
+    public class ProductFilterRequestDto
+    {
+        public List<string>? Brands { get; set; }
+        public List<string>? SubCategorySlugs { get; set; }
+        public decimal? MinPrice { get; set; }
+        public decimal? MaxPrice { get; set; }
+        public bool? InStock { get; set; }
+        public bool? OnSale { get; set; }
+        public int Page { get; set; } = 1;
+        public int PageSize { get; set; } = 20;
+        public string? SortBy { get; set; } // "price_asc", "price_desc", "newest"
+    }
+    public class ProductFilterResultDto
+    {
+        public List<long> ProductIds { get; set; } = new();
+        public int TotalCount { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public int TotalPages { get; set; }
+    }
 }

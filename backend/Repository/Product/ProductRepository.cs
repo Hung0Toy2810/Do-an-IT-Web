@@ -9,6 +9,9 @@ namespace Backend.Repository.Product
         Task<List<long>> SearchProductIdsBySubCategoryAsync(string keyword);
         Task<List<long>> GetProductIdsBySubCategorySlugAsync(string subCategorySlug);
         Task<long?> GetSubCategoryIdBySlugAsync(string subCategorySlug);
+        Task<List<long>> GetAllProductIdsAsync();
+
+
     }
 
     public class ProductRepository : IProductRepository
@@ -65,6 +68,13 @@ namespace Backend.Repository.Product
                 .FirstOrDefaultAsync(sc => sc.Slug == subCategorySlug);
 
             return subCategory?.Id;
+        }
+
+        public async Task<List<long>> GetAllProductIdsAsync()
+        {
+            return await _context.Products
+                .Select(p => p.Id)
+                .ToListAsync();
         }
     }
 }

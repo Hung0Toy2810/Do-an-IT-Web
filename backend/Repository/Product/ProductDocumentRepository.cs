@@ -17,24 +17,6 @@ namespace Backend.Repository.Product
         Task<bool> DeleteAsync(long productId);
         Task<bool> ExistsAsync(long productId);
         Task<bool> ExistsBySlugAsync(string slug);
-        Task<ProductVariant?> GetVariantAsync(long productId, Dictionary<string, string> attributes);
-        Task<bool> UpdateStockAsync(long productId, Dictionary<string, string> attributes, int stockChange);
-        
-        // Search methods
-        Task<List<long>> SearchProductIdsByKeywordAsync(string keyword);
-        Task<List<ProductDocument>> GetProductsByIdsAsync(List<long> productIds);
-        Task<List<ProductDocument>> SearchProductsWithFiltersAsync(
-            List<long> productIds, 
-            decimal? minPrice, 
-            decimal? maxPrice);
-        
-        // SubCategory methods
-        Task<List<ProductDocument>> GetProductsByIdsWithBrandFilterAsync(
-            List<long> productIds, 
-            string? brand,
-            decimal? minPrice,
-            decimal? maxPrice);
-        Task<List<string>> GetBrandsByProductIdsAsync(List<long> productIds);
     }
     
     public class ProductDocumentRepository : IProductDocumentRepository
@@ -63,6 +45,31 @@ namespace Backend.Repository.Product
                 ),
                 new CreateIndexModel<ProductDocument>(
                     Builders<ProductDocument>.IndexKeys.Ascending(x => x.Brand)
+                ),
+                new CreateIndexModel<ProductDocument>(
+                    Builders<ProductDocument>.IndexKeys
+                        .Ascending(x => x.IsDiscontinued)
+                        .Ascending(x => x.Brand),
+                    new CreateIndexOptions { Name = "idx_discontinued_brand" }
+                ),
+                new CreateIndexModel<ProductDocument>(
+                    Builders<ProductDocument>.IndexKeys
+                        .Text(x => x.Name)
+                        .Text(x => x.Brand)
+                        .Text(x => x.Description),
+                    new CreateIndexOptions { 
+                        Name = "idx_fulltext_search",
+                        Weights = new MongoDB.Bson.BsonDocument
+                        {
+                            { "Name", 10 },
+                            { "Brand", 5 },
+                            { "Description", 1 }
+                        }
+                    }
+                ),
+                new CreateIndexModel<ProductDocument>(
+                    Builders<ProductDocument>.IndexKeys.Ascending("Variants.DiscountedPrice"),
+                    new CreateIndexOptions { Name = "idx_variant_price" }
                 )
             };
 

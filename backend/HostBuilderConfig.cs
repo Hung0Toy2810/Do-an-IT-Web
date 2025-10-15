@@ -29,7 +29,7 @@ namespace Backend
                 {
                     var configuration = hostContext.Configuration;
 
-                    // ===== Logging (đăng ký trước để dùng trong ConfigureServices) =====
+                    // ===== Logging =====
                     services.AddLogging(builder =>
                     {
                         builder.AddConsole();
@@ -59,7 +59,6 @@ namespace Backend
 
                         var redis = ConnectionMultiplexer.Connect(redisConfig);
                         services.AddSingleton<IConnectionMultiplexer>(redis);
-
                         // Test kết nối và log
                         var loggerFactory = hostContext.HostingEnvironment.IsDevelopment()
                             ? services.BuildServiceProvider().GetService<ILoggerFactory>()
@@ -139,11 +138,16 @@ namespace Backend
                     services.AddScoped<IJwtTokenService, JwtTokenService>();
                     services.AddScoped<ICategoryRepository, CategoryRepository>();
                     services.AddScoped<ICategoryService, CategoryService>();
-                    services.AddScoped<IProductDocumentService, ProductDocumentService>();
-                    services.AddScoped<IProductService, ProductService>();
                     services.AddScoped<IProductDocumentRepository, ProductDocumentRepository>();
-                    //ProductRepository
+                    services.AddScoped<IProductSearchRepository, ProductSearchRepository>();
+                    services.AddScoped<IProductStockRepository, ProductStockRepository>();
+                    services.AddScoped<IStockReservationRepository, StockReservationRepository>();
                     services.AddScoped<IProductRepository, ProductRepository>();
+                    services.AddScoped<IProductDocumentService, ProductDocumentService>();
+                    services.AddScoped<IProductSearchService, ProductSearchService>();
+                    services.AddScoped<IProductStockService, ProductStockService>();
+                    services.AddScoped<IProductService, ProductService>();
+
                 })
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
@@ -173,7 +177,7 @@ namespace Backend
                                 var endpointList = endpointDataSource.Endpoints.ToList();
                                 if (endpointList.Count == 0)
                                 {
-                                    Console.WriteLine("⚠️  NO ENDPOINTS FOUND!");
+                                    Console.WriteLine("NO ENDPOINTS FOUND!");
                                 }
                                 else
                                 {

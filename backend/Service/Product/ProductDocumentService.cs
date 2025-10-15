@@ -9,33 +9,16 @@ namespace Backend.Service.Product
     public interface IProductDocumentService
     {
         Task<ProductDocument> CreateProductAsync(CreateProductDocumentDto dto);
-        Task<bool> IncreaseStockAsync(string productSlug, string variantSlug, int quantity);
-        Task<bool> DecreaseStockAsync(string productSlug, string variantSlug, int quantity);
-        Task<bool> SetStockAsync(string productSlug, string variantSlug, int stock);
-        Task<List<string>> UpdateVariantImagesAsync(string productSlug, string variantSlug, List<IFormFile> images);
         Task<ProductDocument?> GetProductDetailByIdAsync(long productId);
         Task<ProductDocument?> GetProductDetailBySlugAsync(string productSlug);
         Task<ProductCardDto?> GetProductCardByIdAsync(long productId);
         Task<ProductCardDto?> GetProductCardBySlugAsync(string productSlug);
         Task<VariantInfoDto?> GetVariantInfoAsync(long productId, string variantSlug);
         Task<VariantInfoDto?> GetVariantInfoAsync(string productSlug, string variantSlug);
+        Task<List<string>> UpdateVariantImagesAsync(string productSlug, string variantSlug, List<IFormFile> images);
         Task<bool> UpdateVariantPriceAsync(string productSlug, string variantSlug, decimal originalPrice, decimal discountedPrice);
+        Task<BulkOperationResultDto> BulkUpdatePricesAsync(List<BulkPriceUpdateDto> updates);
         Task<bool> UpdateIsDiscontinuedAsync(string productSlug, bool isDiscontinued);
-
-        // Search methods
-        Task<List<long>> SearchProductIdsByKeywordAsync(string keyword);
-        Task<List<ProductDocument>> SearchProductsWithFiltersAsync(
-            List<long> productIds, 
-            decimal? minPrice, 
-            decimal? maxPrice);
-        
-        // THÊM 2 METHODS MỚI CHO SUBCATEGORY
-        Task<List<ProductDocument>> GetProductsByIdsWithBrandFilterAsync(
-            List<long> productIds, 
-            string? brand,
-            decimal? minPrice,
-            decimal? maxPrice);
-        Task<List<string>> GetBrandsByProductIdsAsync(List<long> productIds);
     }
 
     public class ProductDocumentService : IProductDocumentService
@@ -99,60 +82,6 @@ namespace Backend.Service.Product
             };
 
             return await _repository.CreateAsync(document);
-        }
-
-        public async Task<bool> IncreaseStockAsync(string productSlug, string variantSlug, int quantity)
-        {
-            if (quantity <= 0)
-                throw new ArgumentException("Quantity must be greater than 0", nameof(quantity));
-
-            var product = await _repository.GetBySlugAsync(productSlug);
-            if (product == null)
-                throw new Backend.Exceptions.NotFoundException($"Product with slug '{productSlug}' not found");
-
-            var variant = product.Variants.FirstOrDefault(v => v.Slug == variantSlug);
-            if (variant == null)
-                throw new Backend.Exceptions.NotFoundException($"Variant with slug '{variantSlug}' not found in product '{productSlug}'");
-
-            variant.Stock += quantity;
-            return await _repository.UpdateAsync(product);
-        }
-
-        public async Task<bool> DecreaseStockAsync(string productSlug, string variantSlug, int quantity)
-        {
-            if (quantity <= 0)
-                throw new ArgumentException("Quantity must be greater than 0", nameof(quantity));
-
-            var product = await _repository.GetBySlugAsync(productSlug);
-            if (product == null)
-                throw new Backend.Exceptions.NotFoundException($"Product with slug '{productSlug}' not found");
-
-            var variant = product.Variants.FirstOrDefault(v => v.Slug == variantSlug);
-            if (variant == null)
-                throw new Backend.Exceptions.NotFoundException($"Variant with slug '{variantSlug}' not found in product '{productSlug}'");
-
-            if (variant.Stock < quantity)
-                throw new Backend.Exceptions.BusinessRuleException($"Insufficient stock. Current: {variant.Stock}, Requested: {quantity}");
-
-            variant.Stock -= quantity;
-            return await _repository.UpdateAsync(product);
-        }
-
-        public async Task<bool> SetStockAsync(string productSlug, string variantSlug, int stock)
-        {
-            if (stock < 0)
-                throw new ArgumentException("Stock must be greater than or equal to 0", nameof(stock));
-
-            var product = await _repository.GetBySlugAsync(productSlug);
-            if (product == null)
-                throw new Backend.Exceptions.NotFoundException($"Product with slug '{productSlug}' not found");
-
-            var variant = product.Variants.FirstOrDefault(v => v.Slug == variantSlug);
-            if (variant == null)
-                throw new Backend.Exceptions.NotFoundException($"Variant with slug '{variantSlug}' not found in product '{productSlug}'");
-
-            variant.Stock = stock;
-            return await _repository.UpdateAsync(product);
         }
 
         public async Task<List<string>> UpdateVariantImagesAsync(string productSlug, string variantSlug, List<IFormFile> images)
@@ -357,35 +286,53 @@ namespace Backend.Service.Product
                 Attributes = variant.Attributes
             };
         }
-
-        // Search methods - wrapper
-        public async Task<List<long>> SearchProductIdsByKeywordAsync(string keyword)
+        public async Task<BulkOperationResultDto> BulkUpdatePricesAsync(List<BulkPriceUpdateDto> updates)
         {
-            return await _repository.SearchProductIdsByKeywordAsync(keyword);
-        }
+            var result = new BulkOperationResultDto();
+            var validUpdates = new List<(long ProductId, string VariantSlug, decimal OriginalPrice, decimal DiscountedPrice)>();
 
-        public async Task<List<ProductDocument>> SearchProductsWithFiltersAsync(
-            List<long> productIds,
-            decimal? minPrice,
-            decimal? maxPrice)
-        {
-            return await _repository.SearchProductsWithFiltersAsync(productIds, minPrice, maxPrice);
-        }
+            foreach (var update in updates)
+            {
+                try
+                {
+                    if (update.DiscountedPrice > update.OriginalPrice)
+                    {
+                        result.FailedCount++;
+                        result.Errors.Add($"Discounted price > original price: {update.ProductSlug}/{update.VariantSlug}");
+                        continue;
+                    }
 
+                    var product = await _repository.GetBySlugAsync(update.ProductSlug);
+                    if (product == null)
+                    {
+                        result.FailedCount++;
+                        result.Errors.Add($"Product '{update.ProductSlug}' not found");
+                        continue;
+                    }
 
-        public async Task<List<ProductDocument>> GetProductsByIdsWithBrandFilterAsync(
-            List<long> productIds,
-            string? brand,
-            decimal? minPrice,
-            decimal? maxPrice)
-        {
-            return await _repository.GetProductsByIdsWithBrandFilterAsync(
-                productIds, brand, minPrice, maxPrice);
-        }
+                    var variant = product.Variants.FirstOrDefault(v => v.Slug == update.VariantSlug);
+                    if (variant == null)
+                    {
+                        result.FailedCount++;
+                        result.Errors.Add($"Variant '{update.VariantSlug}' not found");
+                        continue;
+                    }
 
-        public async Task<List<string>> GetBrandsByProductIdsAsync(List<long> productIds)
-        {
-            return await _repository.GetBrandsByProductIdsAsync(productIds);
+                    validUpdates.Add((product.Id, update.VariantSlug, update.OriginalPrice, update.DiscountedPrice));
+                }
+                catch (Exception ex)
+                {
+                    result.FailedCount++;
+                    result.Errors.Add($"Error: {ex.Message}");
+                }
+            }
+
+            if (validUpdates.Count > 0)
+            {
+                result.SuccessCount = validUpdates.Count;
+            }
+
+            return result;
         }
 
         private async Task DeleteUploadedFilesAsync(List<string> fileKeys)

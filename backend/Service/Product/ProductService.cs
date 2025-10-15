@@ -13,6 +13,7 @@ namespace Backend.Service.Product
         Task<ProductSearchResultDto> SearchProductsAsync(ProductSearchRequestDto request);
         Task<SubCategoryProductResultDto> GetProductsBySubCategoryAsync(SubCategoryProductRequestDto request);
         Task<SubCategoryBrandResultDto> GetBrandsBySubCategoryAsync(string subCategorySlug);
+        Task<ProductFilterResultDto> GetProductsWithAdvancedFiltersAsync(ProductFilterRequestDto request);
     }
 
     public class ProductService : IProductService
@@ -20,16 +21,20 @@ namespace Backend.Service.Product
         private readonly SQLServerDbContext _dbContext;
         private readonly IProductDocumentService _productDocumentService;
         private readonly IProductRepository _productRepository;
+        private readonly IProductSearchService _productSearchService;
 
         public ProductService(
             SQLServerDbContext dbContext,
             IProductDocumentService productDocumentService,
-            IProductRepository productRepository)
+            IProductRepository productRepository,
+            IProductSearchService productSearchService)
         {
             _dbContext = dbContext;
             _productDocumentService = productDocumentService;
             _productRepository = productRepository;
+            _productSearchService = productSearchService;
         }
+
 
         public async Task<long> CreateProductAsync(CreateProductDto dto)
         {
@@ -88,7 +93,8 @@ namespace Backend.Service.Product
             var sqlProductIds = await _productRepository
                 .SearchProductIdsBySubCategoryAsync(request.Keyword);
 
-            var mongoProductIds = await _productDocumentService
+            // 🔄 ĐỔI: _productDocumentService → _productSearchService
+            var mongoProductIds = await _productSearchService
                 .SearchProductIdsByKeywordAsync(request.Keyword);
 
             var allProductIds = sqlProductIds
@@ -105,7 +111,8 @@ namespace Backend.Service.Product
                 };
             }
 
-            var products = await _productDocumentService
+            // 🔄 ĐỔI: _productDocumentService → _productSearchService
+            var products = await _productSearchService
                 .SearchProductsWithFiltersAsync(allProductIds, request.MinPrice, request.MaxPrice);
 
             if (products.Count == 0)
@@ -149,10 +156,8 @@ namespace Backend.Service.Product
             };
         }
 
-        // TÍNH NĂNG MỚI 1: Lấy sản phẩm trong SubCategory
         public async Task<SubCategoryProductResultDto> GetProductsBySubCategoryAsync(SubCategoryProductRequestDto request)
         {
-            // Kiểm tra SubCategory tồn tại
             var subCategoryId = await _productRepository.GetSubCategoryIdBySlugAsync(request.SubCategorySlug);
             if (!subCategoryId.HasValue)
             {
@@ -160,7 +165,6 @@ namespace Backend.Service.Product
                     $"SubCategory with slug '{request.SubCategorySlug}' not found");
             }
 
-            // Lấy tất cả ProductId trong SubCategory từ SQL
             var productIds = await _productRepository
                 .GetProductIdsBySubCategorySlugAsync(request.SubCategorySlug);
 
@@ -173,8 +177,8 @@ namespace Backend.Service.Product
                 };
             }
 
-            // Lấy chi tiết từ MongoDB với filter Brand và giá
-            var products = await _productDocumentService
+            // 🔄 ĐỔI: _productDocumentService → _productSearchService
+            var products = await _productSearchService
                 .GetProductsByIdsWithBrandFilterAsync(
                     productIds, 
                     request.Brand, 
@@ -190,7 +194,6 @@ namespace Backend.Service.Product
                 };
             }
 
-            // Tính giá thấp nhất
             var productsWithMinPrice = products
                 .Select(p => new ProductWithMinPrice
                 {
@@ -201,7 +204,6 @@ namespace Backend.Service.Product
                 })
                 .ToList();
 
-            // Sắp xếp theo giá (nếu có)
             List<long> sortedProductIds;
 
             if (request.SortByPriceAscending.HasValue)
@@ -212,7 +214,6 @@ namespace Backend.Service.Product
             }
             else
             {
-                // Không sort - giữ nguyên thứ tự
                 sortedProductIds = productsWithMinPrice.Select(p => p.ProductId).ToList();
             }
 
@@ -223,10 +224,8 @@ namespace Backend.Service.Product
             };
         }
 
-        // TÍNH NĂNG MỚI 2: Lấy danh sách Brand trong SubCategory
         public async Task<SubCategoryBrandResultDto> GetBrandsBySubCategoryAsync(string subCategorySlug)
         {
-            // Kiểm tra SubCategory tồn tại
             var subCategoryId = await _productRepository.GetSubCategoryIdBySlugAsync(subCategorySlug);
             if (!subCategoryId.HasValue)
             {
@@ -234,7 +233,6 @@ namespace Backend.Service.Product
                     $"SubCategory with slug '{subCategorySlug}' not found");
             }
 
-            // Lấy tất cả ProductId trong SubCategory
             var productIds = await _productRepository
                 .GetProductIdsBySubCategorySlugAsync(subCategorySlug);
 
@@ -246,8 +244,7 @@ namespace Backend.Service.Product
                 };
             }
 
-            // Lấy danh sách Brand từ MongoDB
-            var brands = await _productDocumentService.GetBrandsByProductIdsAsync(productIds);
+            var brands = await _productSearchService.GetBrandsByProductIdsAsync(productIds);
 
             return new SubCategoryBrandResultDto
             {
@@ -293,6 +290,94 @@ namespace Backend.Service.Product
             }
 
             return result;
+        }
+
+        public async Task<ProductFilterResultDto> GetProductsWithAdvancedFiltersAsync(ProductFilterRequestDto request)
+        {
+            List<long> productIds = new();
+
+            if (request.SubCategorySlugs != null && request.SubCategorySlugs.Count > 0)
+            {
+                foreach (var slug in request.SubCategorySlugs)
+                {
+                    var ids = await _productRepository.GetProductIdsBySubCategorySlugAsync(slug);
+                    productIds.AddRange(ids);
+                }
+                productIds = productIds.Distinct().ToList();
+            }
+            else
+            {
+                var allProducts = await _productRepository.GetAllProductIdsAsync();
+                productIds = allProducts;
+            }
+
+            if (productIds.Count == 0)
+            {
+                return new ProductFilterResultDto
+                {
+                    ProductIds = new List<long>(),
+                    TotalCount = 0,
+                    Page = request.Page,
+                    PageSize = request.PageSize,
+                    TotalPages = 0
+                };
+            }
+
+            var products = await _productSearchService.GetProductsWithAdvancedFiltersAsync(
+                productIds,
+                request.Brands,
+                request.MinPrice,
+                request.MaxPrice,
+                request.InStock,
+                request.OnSale);
+
+            if (products.Count == 0)
+            {
+                return new ProductFilterResultDto
+                {
+                    ProductIds = new List<long>(),
+                    TotalCount = 0,
+                    Page = request.Page,
+                    PageSize = request.PageSize,
+                    TotalPages = 0
+                };
+            }
+
+            var productsWithMinPrice = products
+                .Select(p => new ProductWithMinPrice
+                {
+                    ProductId = p.Id,
+                    MinPrice = p.Variants.Any() 
+                        ? p.Variants.Min(v => v.DiscountedPrice) 
+                        : decimal.MaxValue
+                })
+                .ToList();
+
+            IEnumerable<long> sortedProductIds = request.SortBy switch
+            {
+                "price_asc" => productsWithMinPrice.OrderBy(p => p.MinPrice).Select(p => p.ProductId),
+                "price_desc" => productsWithMinPrice.OrderByDescending(p => p.MinPrice).Select(p => p.ProductId),
+                "newest" => productsWithMinPrice.Select(p => p.ProductId),
+                _ => productsWithMinPrice.Select(p => p.ProductId)
+            };
+
+            var sortedList = sortedProductIds.ToList();
+            var totalCount = sortedList.Count;
+            var totalPages = (int)Math.Ceiling(totalCount / (double)request.PageSize);
+
+            var pagedProductIds = sortedList
+                .Skip((request.Page - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToList();
+
+            return new ProductFilterResultDto
+            {
+                ProductIds = pagedProductIds,
+                TotalCount = totalCount,
+                Page = request.Page,
+                PageSize = request.PageSize,
+                TotalPages = totalPages
+            };
         }
 
         private class ProductWithMinPrice
