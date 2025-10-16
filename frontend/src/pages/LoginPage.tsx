@@ -126,6 +126,7 @@ export default function LoginPage() {
 
             <div className="flex justify-end">
               <button
+                onClick={() => navigate('/FogotPassword')}
                 type="button"
                 className="text-xs font-medium transition-colors sm:text-sm text-violet-700 hover:text-violet-900"
               >
