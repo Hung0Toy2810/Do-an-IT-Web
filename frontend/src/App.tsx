@@ -5,7 +5,8 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import { BrowserRouter, Routes, Route } from 'react-router-dom'; // ← Thêm BrowserRouter
+import { BrowserRouter, Routes, Route } from 'react-router-dom'; 
+import ChangePasswordPage from './pages/ChangePasswordPage';
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/FogotPassword" element={<ForgotPasswordPage />} />
+          <Route path="/change-password" element={<ChangePasswordPage />} />
         </Routes>
       </NotificationProvider>
     </BrowserRouter>

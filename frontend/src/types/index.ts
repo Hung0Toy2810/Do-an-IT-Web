@@ -1,5 +1,5 @@
 // ==================== types/index.ts ====================
-export type NotificationType = 'success' | 'error' | 'warning';
+export type NotificationType = 'success' | 'error' | 'warning' | 'info';
 export type PageType = 'home' | 'login' | 'register' | 'profile';
 
 export interface Notification {

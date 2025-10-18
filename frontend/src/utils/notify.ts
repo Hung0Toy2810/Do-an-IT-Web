@@ -1,5 +1,5 @@
 // ==================== utils/notify.ts ====================
-import { Notification, NotificationType } from '../types';
+import { Notification} from '../types';
 
 let notificationCallbacks: ((notification: Notification) => void)[] = [];
 let notificationId = 0;

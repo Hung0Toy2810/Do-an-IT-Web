@@ -24,7 +24,16 @@ export default function NotificationProvider({ children }: NotificationProviderP
   // Cập nhật notifyCallback khi component mount
   notifyCallback = (type: NotificationType, message: string) => {
     const id = nextId++;
-    setNotifications((prev) => [...prev, { id, type, message }]);
+    const newNotification = { id, type, message };
+    
+    setNotifications((prev) => {
+      // Giới hạn tối đa 5 thông báo cùng lúc
+      const updated = [...prev, newNotification];
+      if (updated.length > 5) {
+        return updated.slice(-5);
+      }
+      return updated;
+    });
     
     // Tự động xóa sau 5 giây
     setTimeout(() => {
@@ -39,7 +48,8 @@ export default function NotificationProvider({ children }: NotificationProviderP
   return (
     <>
       {children}
-      <div className="fixed z-50 w-full max-w-xs space-y-2 pointer-events-none top-4 right-4">
+      {/* Desktop & Tablet - Top Right */}
+      <div className="fixed z-50 hidden w-full max-w-xs px-4 space-y-2 pointer-events-none sm:block top-4 right-4 sm:px-0">
         {notifications.map((notification) => (
           <NotificationItem
             key={notification.id}
@@ -47,6 +57,19 @@ export default function NotificationProvider({ children }: NotificationProviderP
             onRemove={removeNotification}
           />
         ))}
+      </div>
+      
+      {/* Mobile - Top Center */}
+      <div className="fixed left-0 right-0 z-50 block w-full px-3 space-y-2 pointer-events-none sm:hidden top-4">
+        <div className="max-w-sm mx-auto space-y-2">
+          {notifications.map((notification) => (
+            <NotificationItem
+              key={notification.id}
+              notification={notification}
+              onRemove={removeNotification}
+            />
+          ))}
+        </div>
       </div>
     </>
   );

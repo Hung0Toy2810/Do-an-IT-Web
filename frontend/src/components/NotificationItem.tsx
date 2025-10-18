@@ -1,6 +1,6 @@
 // ==================== components/NotificationItem.tsx ====================
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertCircle, AlertTriangle, X } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle, X, Info } from 'lucide-react';
 import { Notification } from '../types';
 
 interface NotificationItemProps {
@@ -10,6 +10,7 @@ interface NotificationItemProps {
 
 export default function NotificationItem({ notification, onRemove }: NotificationItemProps) {
   const [isVisible, setIsVisible] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     setTimeout(() => setIsVisible(true), 10);
@@ -22,72 +23,83 @@ export default function NotificationItem({ notification, onRemove }: Notificatio
 
   const config = {
     success: {
-      bg: 'bg-green-50',
-      border: 'border-green-200',
-      iconBg: 'bg-green-100',
+      bg: 'bg-gradient-to-r from-green-50 to-emerald-50',
+      border: 'border-green-300',
+      iconBg: 'bg-green-500',
       icon: CheckCircle,
-      iconColor: 'text-green-600',
+      iconColor: 'text-white',
       textColor: 'text-green-900',
+      progressBg: 'bg-green-500',
     },
     error: {
-      bg: 'bg-red-50',
-      border: 'border-red-200',
-      iconBg: 'bg-red-100',
+      bg: 'bg-gradient-to-r from-red-50 to-rose-50',
+      border: 'border-red-300',
+      iconBg: 'bg-red-500',
       icon: AlertCircle,
-      iconColor: 'text-red-600',
+      iconColor: 'text-white',
       textColor: 'text-red-900',
+      progressBg: 'bg-red-500',
     },
     warning: {
-      bg: 'bg-yellow-50',
-      border: 'border-yellow-200',
-      iconBg: 'bg-yellow-100',
+      bg: 'bg-gradient-to-r from-yellow-50 to-amber-50',
+      border: 'border-yellow-300',
+      iconBg: 'bg-yellow-500',
       icon: AlertTriangle,
-      iconColor: 'text-yellow-600',
+      iconColor: 'text-white',
       textColor: 'text-yellow-900',
+      progressBg: 'bg-yellow-500',
+    },
+    info: {
+      bg: 'bg-gradient-to-r from-blue-50 to-cyan-50',
+      border: 'border-blue-300',
+      iconBg: 'bg-blue-500',
+      icon: Info,
+      iconColor: 'text-white',
+      textColor: 'text-blue-900',
+      progressBg: 'bg-blue-500',
     },
   };
 
-  const { bg, border, iconBg, icon: Icon, iconColor, textColor } = config[notification.type];
+  const { bg, border, iconBg, icon: Icon, iconColor, textColor, progressBg } = config[notification.type];
 
   return (
     <div
-      className={`${bg} ${border} border-2 shadow-lg backdrop-blur-sm pointer-events-auto transition-all duration-300 transform ${
-        isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
-      }`}
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      className={`${bg} ${border} border shadow-lg backdrop-blur-sm pointer-events-auto transition-all duration-300 transform overflow-hidden ${
+        isVisible ? 'translate-x-0 opacity-100 scale-100' : 'translate-x-full opacity-0 scale-95'
+      } hover:scale-[1.02] hover:shadow-xl`}
       style={{ borderRadius: '12px' }}
     >
-      <div className="flex items-start gap-2.5 p-3">
+      <div className="flex items-start gap-2 p-2.5 sm:gap-2.5 sm:p-3">
         <div 
-          className={`flex-shrink-0 ${iconBg} flex items-center justify-center w-8 h-8`}
-          style={{ borderRadius: '10px' }}
+          className={`flex-shrink-0 ${iconBg} flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 shadow-md`}
+          style={{ borderRadius: '8px' }}
         >
-          <Icon className={`w-4 h-4 ${iconColor}`} />
+          <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${iconColor}`} />
         </div>
         
-        <div className="flex-1 min-w-0">
-          <p className={`text-xs font-semibold ${textColor} break-words leading-relaxed`}>
+        <div className="flex-1 min-w-0 pt-0.5">
+          <p className={`text-xs sm:text-sm font-semibold ${textColor} break-words leading-snug`}>
             {notification.message}
           </p>
         </div>
 
         <button
           onClick={handleRemove}
-          className={`flex-shrink-0 ${textColor} hover:opacity-70 transition-opacity`}
+          className={`flex-shrink-0 ${textColor} hover:opacity-70 transition-all hover:rotate-90 duration-200 p-0.5 -mt-0.5 -mr-0.5`}
+          aria-label="Đóng thông báo"
         >
-          <X className="w-4 h-4" />
+          <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </button>
       </div>
 
-      <div className="h-1 overflow-hidden bg-black/5" style={{ borderRadius: '0 0 10px 10px' }}>
+      <div className="relative h-0.5 bg-black/10">
         <div 
-          className={`h-full ${
-            notification.type === 'success' ? 'bg-green-500' :
-            notification.type === 'error' ? 'bg-red-500' :
-            'bg-yellow-500'
-          }`}
+          className={`absolute top-0 left-0 h-full ${progressBg}`}
           style={{
             width: '100%',
-            animation: 'progress 5s linear forwards',
+            animation: isPaused ? 'none' : 'progress 5s linear forwards',
           }}
         />
       </div>

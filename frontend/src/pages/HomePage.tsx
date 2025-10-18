@@ -1,5 +1,4 @@
 // ==================== pages/HomePage.tsx ====================
-import React from 'react';
 import HeaderAndNavbar from '../components/HeaderAndNavbar';
 import HeroBannerCarousel from '../components/HeroBanner';
 import ProductSectionDemo from '../components/ProductSection';
@@ -12,7 +11,7 @@ export default function HomePage() {
     <>
     <HeaderAndNavbar/>
     <HeroBannerCarousel/>
-    <ProductSectionDemo/>
+    {/* <ProductSectionDemo/> */}
     <Footer/>
     </>
   );
