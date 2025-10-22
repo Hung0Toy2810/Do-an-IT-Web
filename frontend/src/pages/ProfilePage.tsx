@@ -1,6 +1,5 @@
-// ==================== pages/ProfilePage.tsx ====================
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, User, Mail, MapPin, Camera, LogOut, Shield,Lock } from 'lucide-react';
+import { ArrowLeft, User, Mail, MapPin, Camera, LogOut, Shield, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCookie, deleteCookie } from '../utils/cookies';
 import { notify } from '../components/NotificationProvider';
@@ -49,9 +48,13 @@ interface CustomerData {
   };
 }
 
+function removeDiacritics(str: string) {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [customerData, setCustomerData] = useState<CustomerData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -69,19 +72,29 @@ export default function ProfilePage() {
   const [selectedWardId, setSelectedWardId] = useState<number>(0);
   const [detailAddress, setDetailAddress] = useState('');
 
+  const [provinceSearch, setProvinceSearch] = useState('');
+  const [wardSearch, setWardSearch] = useState('');
+  const [showProvinceDropdown, setShowProvinceDropdown] = useState(false);
+  const [showWardDropdown, setShowWardDropdown] = useState(false);
+
   useEffect(() => {
     if (!isTokenValid()) {
       notify('warning', 'Phiên đăng nhập hết hạn');
       navigate('/login');
       return;
     }
-    fetchCustomerData();
-    fetchProvinces();
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([fetchCustomerData(), fetchProvinces()]);
+      setLoading(false);
+    };
+    loadData();
   }, []);
 
   const fetchCustomerData = async () => {
     const token = getCookie('auth_token');
     if (!token) {
+      notify('warning', 'Vui lòng đăng nhập lại');
       navigate('/login');
       return;
     }
@@ -94,27 +107,31 @@ export default function ProfilePage() {
         },
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
-        setCustomerData(data);
-        setCustomerName(data.customerName || '');
-        setEmail(data.email || '');
-        setAvatarUrl(data.avtURL || '');
+        const customer = data.data || data;
+        setCustomerData(customer);
+        setCustomerName(customer.customerName || '');
+        setEmail(customer.email || '');
+        setAvatarUrl(customer.avtURL || '');
         
-        if (data.standardShippingAddress) {
-          setSelectedProvinceId(data.standardShippingAddress.provinceId || 0);
-          setSelectedWardId(data.standardShippingAddress.wardsId || 0);
-          setDetailAddress(data.standardShippingAddress.detailAddress || '');
+        if (customer.standardShippingAddress) {
+          setSelectedProvinceId(customer.standardShippingAddress.provinceId || 0);
+          setSelectedWardId(customer.standardShippingAddress.wardsId || 0);
+          setDetailAddress(customer.standardShippingAddress.detailAddress || '');
+          setProvinceSearch(customer.standardShippingAddress.provinceName || '');
+          setWardSearch(customer.standardShippingAddress.wardsName || '');
           
-          if (data.standardShippingAddress.provinceId) {
-            fetchWards(data.standardShippingAddress.provinceId);
+          if (customer.standardShippingAddress.provinceId) {
+            await fetchWards(customer.standardShippingAddress.provinceId);
           }
         }
       } else {
-        notify('error', 'Không thể tải thông tin');
+        notify('error', data.message || 'Không thể tải thông tin');
       }
     } catch (error) {
-      notify('error', 'Lỗi kết nối server');
+      notify('error', 'Không thể kết nối đến server');
       console.error('Fetch customer error:', error);
     }
   };
@@ -127,8 +144,11 @@ export default function ProfilePage() {
       if (result.status === 200 && result.data) {
         setProvinces(result.data);
         await filterValidProvinces(result.data);
+      } else {
+        notify('error', result.message || 'Không thể tải danh sách tỉnh/thành');
       }
     } catch (error) {
+      notify('error', 'Không thể kết nối đến server');
       console.error('Fetch provinces error:', error);
     }
   };
@@ -183,28 +203,51 @@ export default function ProfilePage() {
             setWards(wardsResult.data);
           } else {
             setWards([]);
+            notify('error', wardsResult.message || 'Không thể tải danh sách xã/phường');
           }
         } else {
           setCurrentNewDistrict(null);
           setWards([]);
+          notify('error', 'Không tìm thấy thông tin district');
         }
+      } else {
+        notify('error', districtResult.message || 'Không thể tải danh sách quận/huyện');
       }
     } catch (error) {
+      notify('error', 'Không thể kết nối đến server');
       console.error('Fetch wards error:', error);
       setWards([]);
     }
   };
 
-  const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const provinceId = parseInt(e.target.value);
-    setSelectedProvinceId(provinceId);
+  const handleProvinceSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setProvinceSearch(e.target.value);
+    setShowProvinceDropdown(true);
+  };
+
+  const handleWardSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setWardSearch(e.target.value);
+    setShowWardDropdown(true);
+  };
+
+  const handleSelectProvince = (province: Province) => {
+    setSelectedProvinceId(province.PROVINCE_ID);
+    setProvinceSearch(province.PROVINCE_NAME);
+    setShowProvinceDropdown(false);
     setSelectedWardId(0);
+    setWardSearch('');
     setWards([]);
     setCurrentNewDistrict(null);
     
-    if (provinceId) {
-      fetchWards(provinceId);
+    if (province.PROVINCE_ID) {
+      fetchWards(province.PROVINCE_ID);
     }
+  };
+
+  const handleSelectWard = (ward: Ward) => {
+    setSelectedWardId(ward.WARDS_ID);
+    setWardSearch(ward.WARDS_NAME);
+    setShowWardDropdown(false);
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -244,9 +287,10 @@ export default function ProfilePage() {
 
       const data = await response.json();
 
-      if (response.ok && data.avatarUrl) {
-        setAvatarUrl(data.avatarUrl);
-        notify('success', 'Cập nhật ảnh đại diện thành công');
+      if (response.ok) {
+        setAvatarUrl(data.data?.avatarUrl || data.avatarUrl || '');
+        notify('success', data.message || 'Cập nhật ảnh đại diện thành công');
+        await fetchCustomerData();
       } else {
         notify('error', data.message || 'Cập nhật ảnh thất bại');
       }
@@ -323,7 +367,7 @@ export default function ProfilePage() {
       const data = await response.json();
 
       if (response.ok) {
-        notify('success', 'Cập nhật thông tin thành công');
+        notify('success', data.message || 'Cập nhật thông tin thành công');
         setIsEditing(false);
         await fetchCustomerData();
       } else {
@@ -339,17 +383,24 @@ export default function ProfilePage() {
 
   const handleStartEdit = () => {
     setIsEditing(true);
+    if (customerData?.standardShippingAddress) {
+      setProvinceSearch(customerData.standardShippingAddress.provinceName || '');
+      setWardSearch(customerData.standardShippingAddress.wardsName || '');
+    }
   };
 
   const handleCancelEdit = () => {
     if (customerData) {
       setCustomerName(customerData.customerName || '');
       setEmail(customerData.email || '');
+      setAvatarUrl(customerData.avtURL || '');
       
       if (customerData.standardShippingAddress) {
         setSelectedProvinceId(customerData.standardShippingAddress.provinceId || 0);
         setSelectedWardId(customerData.standardShippingAddress.wardsId || 0);
         setDetailAddress(customerData.standardShippingAddress.detailAddress || '');
+        setProvinceSearch(customerData.standardShippingAddress.provinceName || '');
+        setWardSearch(customerData.standardShippingAddress.wardsName || '');
         
         if (customerData.standardShippingAddress.provinceId) {
           fetchWards(customerData.standardShippingAddress.provinceId);
@@ -357,6 +408,8 @@ export default function ProfilePage() {
       }
     }
     setIsEditing(false);
+    setShowProvinceDropdown(false);
+    setShowWardDropdown(false);
   };
 
   const handleLogout = async () => {
@@ -367,19 +420,21 @@ export default function ProfilePage() {
     }
 
     try {
-      await fetch('http://localhost:5067/api/customers/logout', {
+      const response = await fetch('http://localhost:5067/api/customers/logout', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
+      const data = await response.json();
       deleteCookie('auth_token');
-      notify('success', 'Đăng xuất thành công');
+      notify('success', data.message || 'Đăng xuất thành công');
       navigate('/login');
     } catch (error) {
       deleteCookie('auth_token');
       navigate('/login');
+      notify('error', 'Không thể kết nối đến server');
       console.error('Logout error:', error);
     }
   };
@@ -400,18 +455,20 @@ export default function ProfilePage() {
         },
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        notify('success', 'Đăng xuất tất cả thiết bị khác thành công');
+        notify('success', data.message || 'Đăng xuất tất cả thiết bị khác thành công');
       } else {
-        notify('error', 'Không thể đăng xuất thiết bị khác');
+        notify('error', data.message || 'Không thể đăng xuất thiết bị khác');
       }
     } catch (error) {
-      notify('error', 'Lỗi kết nối server');
+      notify('error', 'Không thể kết nối đến server');
       console.error('Logout other devices error:', error);
     }
   };
 
-  if (!customerData) {
+  if (loading || !customerData) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="w-8 h-8 border-4 rounded-full border-violet-800 border-t-transparent animate-spin"></div>
@@ -419,7 +476,13 @@ export default function ProfilePage() {
     );
   }
 
-  const provinceOptions = isEditing ? validProvinces : provinces;
+  const filteredProvinces = validProvinces.filter(province =>
+    removeDiacritics(province.PROVINCE_NAME).toLowerCase().includes(removeDiacritics(provinceSearch).toLowerCase())
+  );
+
+  const filteredWards = wards.filter(ward =>
+    removeDiacritics(ward.WARDS_NAME).toLowerCase().includes(removeDiacritics(wardSearch).toLowerCase())
+  );
 
   return (
     <div className="min-h-screen px-4 py-6 bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 sm:py-12">
@@ -430,7 +493,37 @@ export default function ProfilePage() {
           -moz-appearance: none;
         }
         select::-ms-expand {
-          display: none; /* For IE/Edge */
+          display: none;
+        }
+        .dropdown {
+          position: absolute;
+          z-index: 10;
+          background-color: white;
+          border: 1px solid #e5e7eb;
+          max-height: 200px;
+          overflow-y: auto;
+          width: 100%;
+          border-radius: 14px;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+        }
+        .dropdown-item {
+          padding: 10px 16px;
+          cursor: pointer;
+          font-size: 0.875rem;
+          color: #111827;
+          transition: background-color 0.2s ease-in-out;
+        }
+        .dropdown-item:hover {
+          background-color: #f3e8ff;
+          color: #6b21a8;
+        }
+        .dropdown-item:first-child {
+          border-top-left-radius: 14px;
+          border-top-right-radius: 14px;
+        }
+        .dropdown-item:last-child {
+          border-bottom-left-radius: 14px;
+          border-bottom-right-radius: 14px;
         }
       `}</style>
       <div className="container max-w-4xl mx-auto">
@@ -451,8 +544,8 @@ export default function ProfilePage() {
                   className="relative w-24 h-24 overflow-hidden bg-gray-200 sm:w-32 sm:h-32"
                   style={{ borderRadius: '16px' }}
                 >
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="Avatar" className="object-cover w-full h-full" />
+                  {customerData.avtURL ? (
+                    <img src={customerData.avtURL} alt="Avatar" className="object-cover w-full h-full" />
                   ) : (
                     <div className="flex items-center justify-center w-full h-full bg-gradient-to-br from-violet-600 to-violet-800">
                       <User className="w-12 h-12 text-white sm:w-16 sm:h-16" />
@@ -485,8 +578,19 @@ export default function ProfilePage() {
                   {customerData.customerName || 'Chưa cập nhật'}
                 </h1>
                 <p className="text-sm font-medium text-gray-600 sm:text-base">
-                  {customerData.phoneNumber}
+                  {customerData.phoneNumber || 'Chưa cập nhật'}
                 </p>
+                <p className="text-sm font-medium text-gray-600 sm:text-base">
+                  {customerData.email || 'Chưa cập nhật'}
+                </p>
+                {customerData.standardShippingAddress && (
+                  <p className="text-sm font-medium text-gray-600 sm:text-base">
+                    {customerData.standardShippingAddress.detailAddress
+                      ? `${customerData.standardShippingAddress.detailAddress}, ${customerData.standardShippingAddress.wardsName}, ${customerData.standardShippingAddress.provinceName}`
+                      : 'Chưa cập nhật địa chỉ'
+                    }
+                  </p>
+                )}
               </div>
             </div>
 
@@ -500,7 +604,7 @@ export default function ProfilePage() {
                   <input
                     type="text"
                     placeholder="Nhập tên của bạn"
-                    value={customerName}
+                    value={isEditing ? customerName : (customerData.customerName || 'Chưa cập nhật')}
                     onChange={(e) => setCustomerName(e.target.value)}
                     disabled={!isEditing}
                     className="w-full pl-12 pr-4 py-3.5 text-sm font-medium bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-800/20 focus:border-violet-800 focus:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
@@ -518,7 +622,7 @@ export default function ProfilePage() {
                   <input
                     type="email"
                     placeholder="Nhập email"
-                    value={email}
+                    value={isEditing ? email : (customerData.email || 'Chưa cập nhật')}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={!isEditing}
                     className="w-full pl-12 pr-4 py-3.5 text-sm font-medium bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-800/20 focus:border-violet-800 focus:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
@@ -537,20 +641,32 @@ export default function ProfilePage() {
                     </label>
                     <div className="relative">
                       <MapPin className="absolute w-5 h-5 text-gray-400 -translate-y-1/2 pointer-events-none left-4 top-1/2" />
-                      <select
-                        value={selectedProvinceId}
-                        onChange={handleProvinceChange}
-                        disabled={!isEditing || provinceOptions.length === 0}
-                        className="w-full pl-12 pr-4 py-3.5 text-sm font-medium bg-white border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-violet-800/20 focus:border-violet-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      <input
+                        type="text"
+                        placeholder="Nhập tên tỉnh/thành phố"
+                        value={isEditing ? provinceSearch : (customerData.standardShippingAddress?.provinceName || 'Chưa cập nhật')}
+                        onChange={handleProvinceSearchChange}
+                        onFocus={() => setShowProvinceDropdown(true)}
+                        disabled={!isEditing}
+                        className="w-full pl-12 pr-4 py-3.5 text-sm font-medium bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-800/20 focus:border-violet-800 focus:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{ borderRadius: '14px' }}
-                      >
-                        <option value="0">Chọn Tỉnh/Thành phố</option>
-                        {provinceOptions.map((province) => (
-                          <option key={province.PROVINCE_ID} value={province.PROVINCE_ID}>
-                            {province.PROVINCE_NAME}
-                          </option>
-                        ))}
-                      </select>
+                      />
+                      {isEditing && showProvinceDropdown && provinceSearch && (
+                        <ul className="dropdown">
+                          {filteredProvinces.map((province) => (
+                            <li
+                              key={province.PROVINCE_ID}
+                              className="dropdown-item"
+                              onClick={() => handleSelectProvince(province)}
+                            >
+                              {province.PROVINCE_NAME}
+                            </li>
+                          ))}
+                          {filteredProvinces.length === 0 && (
+                            <li className="dropdown-item">Không tìm thấy</li>
+                          )}
+                        </ul>
+                      )}
                     </div>
                   </div>
 
@@ -560,20 +676,32 @@ export default function ProfilePage() {
                     </label>
                     <div className="relative">
                       <MapPin className="absolute w-5 h-5 text-gray-400 -translate-y-1/2 pointer-events-none left-4 top-1/2" />
-                      <select
-                        value={selectedWardId}
-                        onChange={(e) => setSelectedWardId(parseInt(e.target.value))}
-                        disabled={!isEditing || !selectedProvinceId || wards.length === 0}
-                        className="w-full pl-12 pr-4 py-3.5 text-sm font-medium bg-white border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-violet-800/20 focus:border-violet-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      <input
+                        type="text"
+                        placeholder="Nhập tên xã/phường"
+                        value={isEditing ? wardSearch : (customerData.standardShippingAddress?.wardsName || 'Chưa cập nhật')}
+                        onChange={handleWardSearchChange}
+                        onFocus={() => setShowWardDropdown(true)}
+                        disabled={!isEditing || wards.length === 0}
+                        className="w-full pl-12 pr-4 py-3.5 text-sm font-medium bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-800/20 focus:border-violet-800 focus:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{ borderRadius: '14px' }}
-                      >
-                        <option value="0">Chọn Xã/Phường</option>
-                        {wards.map((ward) => (
-                          <option key={ward.WARDS_ID} value={ward.WARDS_ID}>
-                            {ward.WARDS_NAME}
-                          </option>
-                        ))}
-                      </select>
+                      />
+                      {isEditing && showWardDropdown && wardSearch && (
+                        <ul className="dropdown">
+                          {filteredWards.map((ward) => (
+                            <li
+                              key={ward.WARDS_ID}
+                              className="dropdown-item"
+                              onClick={() => handleSelectWard(ward)}
+                            >
+                              {ward.WARDS_NAME}
+                            </li>
+                          ))}
+                          {filteredWards.length === 0 && (
+                            <li className="dropdown-item">Không tìm thấy</li>
+                          )}
+                        </ul>
+                      )}
                     </div>
                   </div>
 
@@ -583,7 +711,7 @@ export default function ProfilePage() {
                     </label>
                     <textarea
                       placeholder="Nhập số nhà, tên đường..."
-                      value={detailAddress}
+                      value={isEditing ? detailAddress : (customerData.standardShippingAddress?.detailAddress || 'Chưa cập nhật')}
                       onChange={(e) => setDetailAddress(e.target.value)}
                       rows={3}
                       disabled={!isEditing}

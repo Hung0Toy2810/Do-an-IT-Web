@@ -1,16 +1,15 @@
-// ==================== pages/LoginPage.tsx ====================
 import React, { useState } from 'react';
 import { ArrowLeft, Mail, User, Lock } from 'lucide-react';
 import { setCookie } from '../utils/cookies';
 import { notify } from '../components/NotificationProvider';
 import { useNavigate } from 'react-router-dom';
 
-
 export default function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
   const handleLogin = async () => {
     if (!phoneNumber || !password) {
       notify('warning', 'Vui lòng nhập đầy đủ thông tin');
@@ -33,14 +32,14 @@ export default function LoginPage() {
 
       const data = await response.json();
 
-      if (response.ok && data.token) {
-        setCookie('auth_token', data.token, 7);
-        notify('success', data.message || 'Đăng nhập thành công!');
+      if (response.ok && data.data?.token) {
+        setCookie('auth_token', data.data.token, 7);
+        notify('success', data.message);
         setTimeout(() => {
           navigate('/');
         }, 1000);
       } else {
-        notify('error', data.message || 'Đăng nhập thất bại');
+        notify('error', data.message);
       }
     } catch (error) {
       notify('error', 'Không thể kết nối đến server');

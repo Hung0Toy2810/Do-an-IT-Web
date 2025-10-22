@@ -1,4 +1,3 @@
-// ==================== pages/ChangePasswordPage.tsx ====================
 import React, { useState } from 'react';
 import { ArrowLeft, Lock, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -71,7 +70,7 @@ export default function ChangePasswordPage() {
       const data = await response.json();
 
       if (response.ok) {
-        notify('success', 'Thay đổi mật khẩu thành công');
+        notify('success', data.message);
 
         // Step 2: Logout from other devices
         try {
@@ -105,7 +104,7 @@ export default function ChangePasswordPage() {
           navigate('/login');
         }, 1500);
       } else {
-        notify('error', data.message || 'Thay đổi mật khẩu thất bại');
+        notify('error', data.message);
       }
     } catch (error) {
       notify('error', 'Không thể kết nối đến server');

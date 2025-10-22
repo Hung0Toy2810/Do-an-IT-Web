@@ -4,9 +4,9 @@ using Backend.Model.dto.Category;
 using Backend.Helpers;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-
 
 namespace Backend.Service.CategoryService
 {
@@ -41,14 +41,14 @@ namespace Backend.Service.CategoryService
         public async Task CreateCategoryAsync(CreateCategoryDto createCategory)
         {
             if (createCategory == null || string.IsNullOrWhiteSpace(createCategory.Name))
-                throw new ArgumentException("Category name cannot be empty.", nameof(createCategory.Name));
+                throw new ArgumentException("Tên danh mục không được để trống.");
 
             if (await _categoryRepository.IsCategoryNameTakenAsync(createCategory.Name))
-                throw new InvalidOperationException("A category with this name already exists.");
+                throw new InvalidOperationException("Tên danh mục này đã được sử dụng.");
 
             var slug = SlugHelper.GenerateSlug(createCategory.Name);
             if (await _categoryRepository.IsCategorySlugTakenAsync(slug))
-                throw new InvalidOperationException("A category with this slug already exists.");
+                throw new InvalidOperationException("Đường dẫn (slug) của danh mục này đã tồn tại.");
 
             var category = new Category
             {
@@ -65,7 +65,7 @@ namespace Backend.Service.CategoryService
             catch
             {
                 await transaction.RollbackAsync();
-                throw;
+                throw new Exception("Không thể tạo danh mục. Vui lòng thử lại sau.");
             }
         }
 
@@ -73,7 +73,7 @@ namespace Backend.Service.CategoryService
         {
             var category = await _categoryRepository.GetCategoryByIdAsync(id);
             if (category == null)
-                throw new ArgumentException("Category not found.");
+                throw new ArgumentException("Không tìm thấy danh mục.");
 
             return new CategoryDto
             {
@@ -94,7 +94,7 @@ namespace Backend.Service.CategoryService
         {
             var category = await _categoryRepository.GetCategoryBySlugAsync(slug);
             if (category == null)
-                throw new ArgumentException("Category not found.");
+                throw new ArgumentException("Không tìm thấy danh mục.");
 
             return new CategoryDto
             {
@@ -132,21 +132,20 @@ namespace Backend.Service.CategoryService
         public async Task UpdateCategoryAsync(long id, UpdateCategoryDto updateCategory)
         {
             if (updateCategory == null || string.IsNullOrWhiteSpace(updateCategory.Name))
-                throw new ArgumentException("Category name cannot be empty.", nameof(updateCategory.Name));
+                throw new ArgumentException("Tên danh mục không được để trống.");
 
             var category = await _categoryRepository.GetCategoryByIdAsync(id);
             if (category == null)
-                throw new ArgumentException("Category not found.");
+                throw new ArgumentException("Không tìm thấy danh mục.");
 
-            // Check nếu Name thay đổi
             if (updateCategory.Name != category.Name)
             {
                 if (await _categoryRepository.IsCategoryNameTakenAsync(updateCategory.Name))
-                    throw new InvalidOperationException("A category with this name already exists.");
+                    throw new InvalidOperationException("Tên danh mục này đã được sử dụng.");
 
                 var newSlug = SlugHelper.GenerateSlug(updateCategory.Name);
                 if (await _categoryRepository.IsCategorySlugTakenAsync(newSlug))
-                    throw new InvalidOperationException("A category with this slug already exists.");
+                    throw new InvalidOperationException("Đường dẫn (slug) của danh mục này đã tồn tại.");
 
                 category.Name = updateCategory.Name;
                 category.Slug = newSlug;
@@ -161,7 +160,7 @@ namespace Backend.Service.CategoryService
             catch
             {
                 await transaction.RollbackAsync();
-                throw;
+                throw new Exception("Không thể cập nhật danh mục. Vui lòng thử lại sau.");
             }
         }
 
@@ -169,10 +168,10 @@ namespace Backend.Service.CategoryService
         {
             var category = await _categoryRepository.GetCategoryByIdAsync(id);
             if (category == null)
-                throw new ArgumentException("Category not found.");
+                throw new ArgumentException("Không tìm thấy danh mục.");
 
             if (category.SubCategories.Any())
-                throw new InvalidOperationException("Cannot delete category with existing subcategories.");
+                throw new InvalidOperationException("Không thể xóa danh mục khi vẫn còn danh mục con.");
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -183,25 +182,25 @@ namespace Backend.Service.CategoryService
             catch
             {
                 await transaction.RollbackAsync();
-                throw;
+                throw new Exception("Không thể xóa danh mục. Vui lòng thử lại sau.");
             }
         }
 
         public async Task CreateSubCategoryAsync(CreateSubCategoryDto createSubCategory)
         {
             if (createSubCategory == null || string.IsNullOrWhiteSpace(createSubCategory.Name))
-                throw new ArgumentException("SubCategory name cannot be empty.", nameof(createSubCategory.Name));
+                throw new ArgumentException("Tên danh mục con không được để trống.");
 
             var category = await _categoryRepository.GetCategoryByIdAsync(createSubCategory.CategoryId);
             if (category == null)
-                throw new ArgumentException("Category not found.");
+                throw new ArgumentException("Không tìm thấy danh mục cha.");
 
             if (await _categoryRepository.IsSubCategoryNameTakenAsync(createSubCategory.CategoryId, createSubCategory.Name))
-                throw new InvalidOperationException("A subcategory with this name already exists in the category.");
+                throw new InvalidOperationException("Tên danh mục con này đã được sử dụng trong danh mục cha.");
 
             var slug = SlugHelper.GenerateSlug(createSubCategory.Name);
             if (await _categoryRepository.IsSubCategorySlugTakenAsync(createSubCategory.CategoryId, slug))
-                throw new InvalidOperationException("A subcategory with this slug already exists in the category.");
+                throw new InvalidOperationException("Đường dẫn (slug) của danh mục con này đã tồn tại trong danh mục cha.");
 
             var subCategory = new SubCategory
             {
@@ -219,7 +218,7 @@ namespace Backend.Service.CategoryService
             catch
             {
                 await transaction.RollbackAsync();
-                throw;
+                throw new Exception("Không thể tạo danh mục con. Vui lòng thử lại sau.");
             }
         }
 
@@ -227,7 +226,7 @@ namespace Backend.Service.CategoryService
         {
             var subCategory = await _categoryRepository.GetSubCategoryByIdAsync(id);
             if (subCategory == null)
-                throw new ArgumentException("SubCategory not found.");
+                throw new ArgumentException("Không tìm thấy danh mục con.");
 
             return new SubCategoryDto
             {
@@ -242,7 +241,7 @@ namespace Backend.Service.CategoryService
         {
             var subCategory = await _categoryRepository.GetSubCategoryBySlugAsync(categoryId, slug);
             if (subCategory == null)
-                throw new ArgumentException("SubCategory not found.");
+                throw new ArgumentException("Không tìm thấy danh mục con.");
 
             return new SubCategoryDto
             {
@@ -257,7 +256,7 @@ namespace Backend.Service.CategoryService
         {
             var category = await _categoryRepository.GetCategoryByIdAsync(categoryId);
             if (category == null)
-                throw new ArgumentException("Category not found.");
+                throw new ArgumentException("Không tìm thấy danh mục.");
 
             var subCategories = await _categoryRepository.GetSubCategoriesByCategoryIdAsync(categoryId);
             return subCategories.Select(sc => new SubCategoryDto
@@ -272,44 +271,27 @@ namespace Backend.Service.CategoryService
         public async Task UpdateSubCategoryAsync(long id, UpdateSubCategoryDto updateSubCategory)
         {
             if (updateSubCategory == null || string.IsNullOrWhiteSpace(updateSubCategory.Name))
-                throw new ArgumentException("SubCategory name cannot be empty.", nameof(updateSubCategory.Name));
+                throw new ArgumentException("Tên danh mục con không được để trống.");
 
             var subCategory = await _categoryRepository.GetSubCategoryByIdAsync(id);
             if (subCategory == null)
-                throw new ArgumentException("SubCategory not found.");
+                throw new ArgumentException("Không tìm thấy danh mục con.");
 
-            // Kiểm tra category mới có tồn tại không
             var newCategory = await _categoryRepository.GetCategoryByIdAsync(updateSubCategory.CategoryId);
             if (newCategory == null)
-                throw new ArgumentException("New category not found.");
+                throw new ArgumentException("Không tìm thấy danh mục cha mới.");
 
-            // Check nếu Name hoặc CategoryId thay đổi
             bool nameChanged = updateSubCategory.Name != subCategory.Name;
             bool categoryChanged = updateSubCategory.CategoryId != subCategory.CategoryId;
 
             if (nameChanged || categoryChanged)
             {
-                // Check name conflict trong category đích
                 if (await _categoryRepository.IsSubCategoryNameTakenAsync(updateSubCategory.CategoryId, updateSubCategory.Name))
-                {
-                    // Nếu cùng SubCategory (không đổi CategoryId và Name giống nhau) thì OK
-                    if (!(updateSubCategory.CategoryId == subCategory.CategoryId && updateSubCategory.Name == subCategory.Name))
-                    {
-                        throw new InvalidOperationException("A subcategory with this name already exists in the target category.");
-                    }
-                }
+                    throw new InvalidOperationException("Tên danh mục con này đã được sử dụng trong danh mục đích.");
 
                 var newSlug = SlugHelper.GenerateSlug(updateSubCategory.Name);
-                
-                // Check slug conflict trong category đích
                 if (await _categoryRepository.IsSubCategorySlugTakenAsync(updateSubCategory.CategoryId, newSlug))
-                {
-                    // Nếu cùng SubCategory (không đổi CategoryId và Slug giống nhau) thì OK
-                    if (!(updateSubCategory.CategoryId == subCategory.CategoryId && newSlug == subCategory.Slug))
-                    {
-                        throw new InvalidOperationException("A subcategory with this slug already exists in the target category.");
-                    }
-                }
+                    throw new InvalidOperationException("Đường dẫn (slug) của danh mục con này đã tồn tại trong danh mục đích.");
 
                 subCategory.Name = updateSubCategory.Name;
                 subCategory.Slug = newSlug;
@@ -325,7 +307,7 @@ namespace Backend.Service.CategoryService
             catch
             {
                 await transaction.RollbackAsync();
-                throw;
+                throw new Exception("Không thể cập nhật danh mục con. Vui lòng thử lại sau.");
             }
         }
 
@@ -333,10 +315,10 @@ namespace Backend.Service.CategoryService
         {
             var subCategory = await _categoryRepository.GetSubCategoryByIdAsync(id);
             if (subCategory == null)
-                throw new ArgumentException("SubCategory not found.");
+                throw new ArgumentException("Không tìm thấy danh mục con.");
 
             if (subCategory.Products.Any())
-                throw new InvalidOperationException("Cannot delete subcategory with existing products.");
+                throw new InvalidOperationException("Không thể xóa danh mục con khi vẫn còn sản phẩm.");
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -347,7 +329,7 @@ namespace Backend.Service.CategoryService
             catch
             {
                 await transaction.RollbackAsync();
-                throw;
+                throw new Exception("Không thể xóa danh mục con. Vui lòng thử lại sau.");
             }
         }
 

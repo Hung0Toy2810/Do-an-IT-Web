@@ -1,4 +1,3 @@
-// ==================== pages/ForgotPasswordPage.tsx ====================
 import React, { useState } from 'react';
 import { ArrowLeft, User, Lock, Shield, KeyRound } from 'lucide-react';
 import { notify } from '../components/NotificationProvider';
@@ -40,10 +39,10 @@ export default function ForgotPasswordPage() {
       const data = await response.json();
 
       if (response.ok) {
-        notify('success', 'Mã OTP đã được gửi đến số điện thoại của bạn');
+        notify('success', data.message);
         setStep(2);
       } else {
-        notify('error', data.message || 'Không thể gửi OTP');
+        notify('error', data.message);
       }
     } catch (error) {
       notify('error', 'Không thể kết nối đến server');
@@ -87,12 +86,12 @@ export default function ForgotPasswordPage() {
       const data = await response.json();
 
       if (response.ok) {
-        notify('success', 'Đặt lại mật khẩu thành công!');
+        notify('success', data.message);
         setTimeout(() => {
           navigate('/login');
         }, 1000);
       } else {
-        notify('error', data.message || 'Đặt lại mật khẩu thất bại');
+        notify('error', data.message);
       }
     } catch (error) {
       notify('error', 'Không thể kết nối đến server');

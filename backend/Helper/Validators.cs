@@ -13,7 +13,7 @@ namespace Backend.Validators
             _errors.Clear();
 
             ValidateBasicFields(dto);
-            ValidateSlug(dto.Slug, "Product");
+            ValidateSlug(dto.Slug, "Sản phẩm");
             ValidateAttributeOptions(dto);
             ValidateVariants(dto);
 
@@ -26,58 +26,58 @@ namespace Backend.Validators
         private void ValidateBasicFields(CreateProductDocumentDto dto)
         {
             if (dto.Id <= 0)
-                _errors.Add("Id must be greater than 0");
+                _errors.Add("Id phải lớn hơn 0");
 
             if (string.IsNullOrWhiteSpace(dto.Name))
-                _errors.Add("Name is required");
+                _errors.Add("Tên sản phẩm là bắt buộc");
             else if (dto.Name.Length > 200)
-                _errors.Add("Name must not exceed 200 characters");
+                _errors.Add("Tên sản phẩm không được vượt quá 200 ký tự");
 
             if (string.IsNullOrWhiteSpace(dto.Slug))
-                _errors.Add("Slug is required");
+                _errors.Add("Slug là bắt buộc");
 
             if (string.IsNullOrWhiteSpace(dto.Brand))
-                _errors.Add("Brand is required");
+                _errors.Add("Thương hiệu là bắt buộc");
 
             if (string.IsNullOrWhiteSpace(dto.Description))
-                _errors.Add("Description is required");
+                _errors.Add("Mô tả là bắt buộc");
             else if (dto.Description.Length > 1000)
-                _errors.Add("Description must not exceed 1000 characters");
+                _errors.Add("Mô tả không được vượt quá 1000 ký tự");
         }
 
         private void ValidateSlug(string slug, string context)
         {
             if (string.IsNullOrWhiteSpace(slug))
             {
-                _errors.Add($"{context} slug is required");
+                _errors.Add($"Slug của {context} là bắt buộc");
                 return;
             }
 
             // Slug must be lowercase, numbers, hyphens only
             var slugPattern = @"^[a-z0-9]+(-[a-z0-9]+)*$";
             if (!Regex.IsMatch(slug, slugPattern))
-                _errors.Add($"{context} slug '{slug}' is invalid. Must contain only lowercase letters, numbers, and hyphens (no Vietnamese characters or special characters)");
+                _errors.Add($"Slug của {context} '{slug}' không hợp lệ. Chỉ được chứa chữ thường, số và dấu gạch ngang (không chứa ký tự tiếng Việt hoặc ký tự đặc biệt)");
         }
 
         private void ValidateAttributeOptions(CreateProductDocumentDto dto)
         {
             if (dto.AttributeOptions == null || !dto.AttributeOptions.Any())
             {
-                _errors.Add("AttributeOptions is required and must have at least one attribute");
+                _errors.Add("AttributeOptions là bắt buộc và phải có ít nhất một thuộc tính");
                 return;
             }
 
             foreach (var attr in dto.AttributeOptions)
             {
                 if (string.IsNullOrWhiteSpace(attr.Key))
-                    _errors.Add("Attribute key cannot be empty");
+                    _errors.Add("Khóa thuộc tính không được rỗng");
 
                 if (attr.Value == null || !attr.Value.Any())
-                    _errors.Add($"Attribute '{attr.Key}' must have at least one value");
+                    _errors.Add($"Thuộc tính '{attr.Key}' phải có ít nhất một giá trị");
                 else if (attr.Value.Any(string.IsNullOrWhiteSpace))
-                    _errors.Add($"Attribute '{attr.Key}' contains empty values");
+                    _errors.Add($"Thuộc tính '{attr.Key}' chứa giá trị rỗng");
                 else if (attr.Value.Distinct().Count() != attr.Value.Count)
-                    _errors.Add($"Attribute '{attr.Key}' contains duplicate values");
+                    _errors.Add($"Thuộc tính '{attr.Key}' chứa giá trị trùng lặp");
             }
         }
 
@@ -85,7 +85,7 @@ namespace Backend.Validators
         {
             if (dto.Variants == null || !dto.Variants.Any())
             {
-                _errors.Add("Variants is required and must have at least one variant");
+                _errors.Add("Danh sách biến thể là bắt buộc và phải có ít nhất một biến thể");
                 return;
             }
 
@@ -95,7 +95,7 @@ namespace Backend.Validators
 
             if (dto.Variants.Count != expectedVariantCount)
             {
-                _errors.Add($"Expected {expectedVariantCount} variants (based on attribute combinations), but got {dto.Variants.Count}");
+                _errors.Add($"Kỳ vọng có {expectedVariantCount} biến thể (dựa trên tổ hợp thuộc tính), nhưng chỉ nhận được {dto.Variants.Count}");
             }
 
             // Validate each variant
@@ -105,7 +105,7 @@ namespace Backend.Validators
             for (int i = 0; i < dto.Variants.Count; i++)
             {
                 var variant = dto.Variants[i];
-                var context = $"Variant[{i}]";
+                var context = $"Biến thể[{i}]";
 
                 ValidateVariantBasic(variant, context);
                 ValidateVariantAttributes(variant, dto.AttributeOptions, context);
@@ -116,7 +116,7 @@ namespace Backend.Validators
                 if (!string.IsNullOrWhiteSpace(variant.Slug))
                 {
                     if (!variantSlugs.Add(variant.Slug))
-                        _errors.Add($"{context}: Duplicate slug '{variant.Slug}'");
+                        _errors.Add($"{context}: Slug trùng lặp '{variant.Slug}'");
                 }
 
                 // Check duplicate attribute combinations
@@ -124,7 +124,7 @@ namespace Backend.Validators
                 if (!string.IsNullOrWhiteSpace(combination))
                 {
                     if (!variantCombinations.Add(combination))
-                        _errors.Add($"{context}: Duplicate attribute combination");
+                        _errors.Add($"{context}: Tổ hợp thuộc tính trùng lặp");
                 }
             }
 
@@ -135,12 +135,12 @@ namespace Backend.Validators
         private void ValidateVariantBasic(CreateVariantDto variant, string context)
         {
             if (string.IsNullOrWhiteSpace(variant.Slug))
-                _errors.Add($"{context}: Slug is required");
+                _errors.Add($"{context}: Slug là bắt buộc");
             else
                 ValidateSlug(variant.Slug, context);
 
             if (variant.Attributes == null || !variant.Attributes.Any())
-                _errors.Add($"{context}: Attributes is required");
+                _errors.Add($"{context}: Thuộc tính là bắt buộc");
         }
 
         private void ValidateVariantAttributes(CreateVariantDto variant, Dictionary<string, List<string>> attributeOptions, string context)
@@ -151,7 +151,7 @@ namespace Backend.Validators
             foreach (var attrKey in attributeOptions.Keys)
             {
                 if (!variant.Attributes.ContainsKey(attrKey))
-                    _errors.Add($"{context}: Missing attribute '{attrKey}'");
+                    _errors.Add($"{context}: Thiếu thuộc tính '{attrKey}'");
             }
 
             // Check if variant attributes are valid
@@ -159,36 +159,36 @@ namespace Backend.Validators
             {
                 if (!attributeOptions.ContainsKey(attr.Key))
                 {
-                    _errors.Add($"{context}: Unknown attribute '{attr.Key}'");
+                    _errors.Add($"{context}: Thuộc tính không xác định '{attr.Key}'");
                 }
                 else if (!attributeOptions[attr.Key].Contains(attr.Value))
                 {
-                    _errors.Add($"{context}: Invalid value '{attr.Value}' for attribute '{attr.Key}'. Valid values: {string.Join(", ", attributeOptions[attr.Key])}");
+                    _errors.Add($"{context}: Giá trị không hợp lệ '{attr.Value}' cho thuộc tính '{attr.Key}'. Giá trị hợp lệ: {string.Join(", ", attributeOptions[attr.Key])}");
                 }
             }
 
             // Check for extra attributes
             if (variant.Attributes.Count != attributeOptions.Count)
-                _errors.Add($"{context}: Must have exactly {attributeOptions.Count} attributes");
+                _errors.Add($"{context}: Phải có chính xác {attributeOptions.Count} thuộc tính");
         }
 
         private void ValidateVariantPrices(CreateVariantDto variant, string context)
         {
             if (variant.OriginalPrice <= 0)
-                _errors.Add($"{context}: OriginalPrice must be greater than 0");
+                _errors.Add($"{context}: Giá gốc phải lớn hơn 0");
 
             if (variant.DiscountedPrice <= 0)
-                _errors.Add($"{context}: DiscountedPrice must be greater than 0");
+                _errors.Add($"{context}: Giá giảm phải lớn hơn 0");
 
             if (variant.DiscountedPrice > variant.OriginalPrice)
-                _errors.Add($"{context}: DiscountedPrice ({variant.DiscountedPrice}) cannot be greater than OriginalPrice ({variant.OriginalPrice})");
+                _errors.Add($"{context}: Giá giảm ({variant.DiscountedPrice}) không được lớn hơn giá gốc ({variant.OriginalPrice})");
         }
 
         private void ValidateVariantSpecifications(CreateVariantDto variant, string context)
         {
             if (variant.Specifications == null || !variant.Specifications.Any())
             {
-                _errors.Add($"{context}: Specifications is required and must have at least one specification");
+                _errors.Add($"{context}: Thông số kỹ thuật là bắt buộc và phải có ít nhất một thông số");
                 return;
             }
 
@@ -196,15 +196,15 @@ namespace Backend.Validators
             for (int j = 0; j < variant.Specifications.Count; j++)
             {
                 var spec = variant.Specifications[j];
-                var specContext = $"{context}.Specification[{j}]";
+                var specContext = $"{context}.Thông số[{j}]";
 
                 if (string.IsNullOrWhiteSpace(spec.Label))
-                    _errors.Add($"{specContext}: Label is required");
+                    _errors.Add($"{specContext}: Nhãn là bắt buộc");
                 else if (!specLabels.Add(spec.Label))
-                    _errors.Add($"{specContext}: Duplicate label '{spec.Label}'");
+                    _errors.Add($"{specContext}: Nhãn trùng lặp '{spec.Label}'");
 
                 if (string.IsNullOrWhiteSpace(spec.Value))
-                    _errors.Add($"{specContext}: Value is required");
+                    _errors.Add($"{specContext}: Giá trị là bắt buộc");
             }
         }
 
@@ -218,7 +218,7 @@ namespace Backend.Validators
             var missingCombinations = allCombinations.Except(providedCombinations).ToList();
             if (missingCombinations.Any())
             {
-                _errors.Add($"Missing variant combinations: {string.Join(", ", missingCombinations.Select(c => $"[{c.Replace("|", ", ")}]"))}");
+                _errors.Add($"Thiếu các tổ hợp biến thể: {string.Join(", ", missingCombinations.Select(c => $"[{c.Replace("|", ", ")}]"))}");
             }
         }
 

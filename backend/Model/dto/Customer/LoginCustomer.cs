@@ -4,13 +4,13 @@ namespace Backend.Model.dto.Customer
 {
     public class LoginCustomer
     {
-        [Required(ErrorMessage = "Phone number is required.")]
-        [MaxLength(15, ErrorMessage = "Phone number cannot exceed 15 characters.")]
-        [RegularExpression(@"^\+?\d{8,15}$", ErrorMessage = "Phone number must be a valid number with 8 to 15 digits.")]
+        [Required(ErrorMessage = "Vui lòng nhập số điện thoại.")]
+        [MaxLength(15, ErrorMessage = "Số điện thoại không được vượt quá 15 ký tự.")]
+        [RegularExpression(@"^\+?\d{8,15}$", ErrorMessage = "Số điện thoại không hợp lệ (8–15 chữ số).")]
         public string PhoneNumber { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Password is required.")]
-        [MaxLength(100, ErrorMessage = "Password cannot exceed 100 characters.")]
+        [Required(ErrorMessage = "Vui lòng nhập mật khẩu.")]
+        [MaxLength(100, ErrorMessage = "Mật khẩu không được vượt quá 100 ký tự.")]
         public string Password { get; set; } = string.Empty;
     }
 }

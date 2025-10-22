@@ -46,15 +46,15 @@ namespace Backend.Service.Product
         {
             _validator.Validate(dto);
 
-            // Check if product already exists
+            // Kiểm tra xem sản phẩm đã tồn tại chưa
             if (await _repository.ExistsAsync(dto.Id))
             {
-                throw new InvalidOperationException($"Product with Id {dto.Id} already exists");
+                throw new InvalidOperationException($"Sản phẩm với Id {dto.Id} đã tồn tại");
             }
 
             if (await _repository.ExistsBySlugAsync(dto.Slug))
             {
-                throw new InvalidOperationException($"Product with Slug '{dto.Slug}' already exists");
+                throw new InvalidOperationException($"Sản phẩm với Slug '{dto.Slug}' đã tồn tại");
             }
 
             var document = new ProductDocument
@@ -88,18 +88,18 @@ namespace Backend.Service.Product
         public async Task<List<string>> UpdateVariantImagesAsync(string productSlug, string variantSlug, List<IFormFile> images)
         {
             if (images == null || images.Count == 0)
-                throw new ArgumentException("Images list cannot be null or empty", nameof(images));
+                throw new ArgumentException("Danh sách hình ảnh không được null hoặc rỗng", nameof(images));
 
             if (images.Count > 10)
-                throw new ArgumentException("Maximum 10 images allowed per variant", nameof(images));
+                throw new ArgumentException("Tối đa 10 hình ảnh được phép cho mỗi biến thể", nameof(images));
 
             var product = await _repository.GetBySlugAsync(productSlug);
             if (product == null)
-                throw new Backend.Exceptions.NotFoundException($"Product with slug '{productSlug}' not found");
+                throw new Backend.Exceptions.NotFoundException($"Không tìm thấy sản phẩm với slug '{productSlug}'");
 
             var variant = product.Variants.FirstOrDefault(v => v.Slug == variantSlug);
             if (variant == null)
-                throw new Backend.Exceptions.NotFoundException($"Variant with slug '{variantSlug}' not found in product '{productSlug}'");
+                throw new Backend.Exceptions.NotFoundException($"Không tìm thấy biến thể với slug '{variantSlug}' trong sản phẩm '{productSlug}'");
 
             var oldImageUrls = new List<string>(variant.Images);
             var uploadedFileKeys = new List<string>();
@@ -111,7 +111,7 @@ namespace Backend.Service.Product
                 {
                     var image = images[i];
                     if (image == null || image.Length == 0)
-                        throw new ArgumentException($"Image at index {i} is null or empty");
+                        throw new ArgumentException($"Hình ảnh tại vị trí {i} là null hoặc rỗng");
 
                     var fileName = $"{productSlug}_{variantSlug}_{Guid.NewGuid()}";
                     
@@ -132,7 +132,7 @@ namespace Backend.Service.Product
                 bool updateSuccess = await _repository.UpdateAsync(product);
 
                 if (!updateSuccess)
-                    throw new InvalidOperationException("Failed to update product in database");
+                    throw new InvalidOperationException("Không thể cập nhật sản phẩm trong cơ sở dữ liệu");
 
                 await DeleteOldImagesAsync(oldImageUrls);
 
@@ -148,21 +148,21 @@ namespace Backend.Service.Product
         public async Task<bool> UpdateVariantPriceAsync(string productSlug, string variantSlug, decimal originalPrice, decimal discountedPrice)
         {
             if (originalPrice < 0)
-                throw new ArgumentException("Original price must be greater than or equal to 0", nameof(originalPrice));
+                throw new ArgumentException("Giá gốc phải lớn hơn hoặc bằng 0", nameof(originalPrice));
 
             if (discountedPrice < 0)
-                throw new ArgumentException("Discounted price must be greater than or equal to 0", nameof(discountedPrice));
+                throw new ArgumentException("Giá giảm phải lớn hơn hoặc bằng 0", nameof(discountedPrice));
 
             if (discountedPrice > originalPrice)
-                throw new ArgumentException("Discounted price cannot be greater than original price");
+                throw new ArgumentException("Giá giảm không được lớn hơn giá gốc");
 
             var product = await _repository.GetBySlugAsync(productSlug);
             if (product == null)
-                throw new Backend.Exceptions.NotFoundException($"Product with slug '{productSlug}' not found");
+                throw new Backend.Exceptions.NotFoundException($"Không tìm thấy sản phẩm với slug '{productSlug}'");
 
             var variant = product.Variants.FirstOrDefault(v => v.Slug == variantSlug);
             if (variant == null)
-                throw new Backend.Exceptions.NotFoundException($"Variant with slug '{variantSlug}' not found in product '{productSlug}'");
+                throw new Backend.Exceptions.NotFoundException($"Không tìm thấy biến thể với slug '{variantSlug}' trong sản phẩm '{productSlug}'");
 
             variant.OriginalPrice = originalPrice;
             variant.DiscountedPrice = discountedPrice;
@@ -174,7 +174,7 @@ namespace Backend.Service.Product
         {
             var product = await _repository.GetBySlugAsync(productSlug);
             if (product == null)
-                throw new Backend.Exceptions.NotFoundException($"Product with slug '{productSlug}' not found");
+                throw new Backend.Exceptions.NotFoundException($"Không tìm thấy sản phẩm với slug '{productSlug}'");
 
             product.IsDiscontinued = isDiscontinued;
 
@@ -201,7 +201,7 @@ namespace Backend.Service.Product
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Warning: Failed to delete old image {url}: {ex.Message}");
+                    Console.WriteLine($"Cảnh báo: Không thể xóa hình ảnh cũ {url}: {ex.Message}");
                 }
             }
         }
@@ -236,7 +236,7 @@ namespace Backend.Service.Product
 
             if (minVariant == null)
             {
-                throw new InvalidOperationException($"Product {product.Id} has no variants");
+                throw new InvalidOperationException($"Sản phẩm {product.Id} không có biến thể");
             }
 
             return new ProductCardDto
@@ -287,6 +287,7 @@ namespace Backend.Service.Product
                 Attributes = variant.Attributes
             };
         }
+
         public async Task<BulkOperationResultDto> BulkUpdatePricesAsync(List<BulkPriceUpdateDto> updates)
         {
             var result = new BulkOperationResultDto();
@@ -299,7 +300,7 @@ namespace Backend.Service.Product
                     if (update.DiscountedPrice > update.OriginalPrice)
                     {
                         result.FailedCount++;
-                        result.Errors.Add($"Discounted price > original price: {update.ProductSlug}/{update.VariantSlug}");
+                        result.Errors.Add($"Giá giảm lớn hơn giá gốc: {update.ProductSlug}/{update.VariantSlug}");
                         continue;
                     }
 
@@ -307,7 +308,7 @@ namespace Backend.Service.Product
                     if (product == null)
                     {
                         result.FailedCount++;
-                        result.Errors.Add($"Product '{update.ProductSlug}' not found");
+                        result.Errors.Add($"Không tìm thấy sản phẩm '{update.ProductSlug}'");
                         continue;
                     }
 
@@ -315,7 +316,7 @@ namespace Backend.Service.Product
                     if (variant == null)
                     {
                         result.FailedCount++;
-                        result.Errors.Add($"Variant '{update.VariantSlug}' not found");
+                        result.Errors.Add($"Không tìm thấy biến thể '{update.VariantSlug}'");
                         continue;
                     }
 
@@ -324,7 +325,7 @@ namespace Backend.Service.Product
                 catch (Exception ex)
                 {
                     result.FailedCount++;
-                    result.Errors.Add($"Error: {ex.Message}");
+                    result.Errors.Add($"Lỗi: {ex.Message}");
                 }
             }
 
@@ -346,7 +347,7 @@ namespace Backend.Service.Product
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Warning: Failed to delete uploaded file {fileKey}: {ex.Message}");
+                    Console.WriteLine($"Cảnh báo: Không thể xóa tệp đã tải lên {fileKey}: {ex.Message}");
                 }
             }
         }

@@ -35,7 +35,6 @@ namespace Backend.Service.Product
             _productSearchService = productSearchService;
         }
 
-
         public async Task<long> CreateProductAsync(CreateProductDto dto)
         {
             var subCategoryExists = await _dbContext.SubCategories
@@ -44,14 +43,14 @@ namespace Backend.Service.Product
             if (!subCategoryExists)
             {
                 throw new Backend.Exceptions.NotFoundException(
-                    $"SubCategory with Id {dto.SubCategoryId} not found");
+                    $"Không tìm thấy danh mục phụ với Id {dto.SubCategoryId}");
             }
 
             var slugExists = await _productDocumentService.GetProductDetailBySlugAsync(dto.Slug);
             if (slugExists != null)
             {
                 throw new InvalidOperationException(
-                    $"Product with Slug '{dto.Slug}' already exists");
+                    $"Sản phẩm với Slug '{dto.Slug}' đã tồn tại");
             }
 
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
@@ -162,7 +161,7 @@ namespace Backend.Service.Product
             if (!subCategoryId.HasValue)
             {
                 throw new Backend.Exceptions.NotFoundException(
-                    $"SubCategory with slug '{request.SubCategorySlug}' not found");
+                    $"Không tìm thấy danh mục phụ với slug '{request.SubCategorySlug}'");
             }
 
             var productIds = await _productRepository
@@ -230,7 +229,7 @@ namespace Backend.Service.Product
             if (!subCategoryId.HasValue)
             {
                 throw new Backend.Exceptions.NotFoundException(
-                    $"SubCategory with slug '{subCategorySlug}' not found");
+                    $"Không tìm thấy danh mục phụ với slug '{subCategorySlug}'");
             }
 
             var productIds = await _productRepository

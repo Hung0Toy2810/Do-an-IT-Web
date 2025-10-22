@@ -4,7 +4,7 @@ namespace Backend.Model.dto.Customer
 {
     public class UpdateAvatarRequest
     {
-        [Required(ErrorMessage = "File is required.")]
+        [Required(ErrorMessage = "Vui lòng chọn tệp.")]
         public IFormFile File { get; set; } = null!;
     }
 }

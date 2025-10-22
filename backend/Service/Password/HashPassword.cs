@@ -12,7 +12,7 @@ namespace Backend.Service.Password
         public string HashPassword(string password)
         {
             if (string.IsNullOrWhiteSpace(password))
-                throw new ArgumentException("Password cannot be empty", nameof(password));
+                throw new ArgumentException("Mật khẩu không thể để trống", nameof(password));
             return BCrypt.Net.BCrypt.HashPassword(password);
         }
 

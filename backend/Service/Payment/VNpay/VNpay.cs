@@ -36,16 +36,16 @@ namespace Backend.Service.Payment
             
             // Load config với null checking
             _vnpHashSecret = _configuration["VNPay:vnp_HashSecret"] 
-                ?? throw new InvalidOperationException("VNPay:vnp_HashSecret is not configured");
+                ?? throw new InvalidOperationException("VNPay:vnp_HashSecret chưa được cấu hình");
             
             _vnpUrl = _configuration["VNPay:vnp_Url"] 
-                ?? throw new InvalidOperationException("VNPay:vnp_Url is not configured");
+                ?? throw new InvalidOperationException("VNPay:vnp_Url chưa được cấu hình");
             
             _vnpTmnCode = _configuration["VNPay:vnp_TmnCode"] 
-                ?? throw new InvalidOperationException("VNPay:vnp_TmnCode is not configured");
+                ?? throw new InvalidOperationException("VNPay:vnp_TmnCode chưa được cấu hình");
             
             _vnpReturnUrl = _configuration["VNPay:vnp_Returnurl"] 
-                ?? throw new InvalidOperationException("VNPay:vnp_Returnurl is not configured");
+                ?? throw new InvalidOperationException("VNPay:vnp_Returnurl chưa được cấu hình");
 
             _log.Info("VNPayService initialized successfully");
         }
@@ -55,7 +55,7 @@ namespace Backend.Service.Payment
             try
             {
                 if (request == null)
-                    throw new ArgumentNullException(nameof(request));
+                    throw new ArgumentNullException(nameof(request), "Yêu cầu thanh toán không được null");
 
                 if (string.IsNullOrEmpty(ipAddress))
                     ipAddress = "127.0.0.1";
@@ -150,7 +150,7 @@ namespace Backend.Service.Payment
             }
             catch (Exception ex)
             {
-                _log.Error("Error creating VNPay payment URL", ex);
+                _log.Error("Lỗi khi tạo URL thanh toán VNPay", ex);
                 throw;
             }
         }
@@ -160,7 +160,7 @@ namespace Backend.Service.Payment
             try
             {
                 if (queryString == null || queryString.Count == 0)
-                    throw new ArgumentException("QueryString is empty", nameof(queryString));
+                    throw new ArgumentException("QueryString rỗng", nameof(queryString));
 
                 _log.InfoFormat("Begin VNPAY Return, QueryString Count={0}", queryString.Count);
 
@@ -190,17 +190,17 @@ namespace Backend.Service.Payment
                 // Parse với error handling
                 if (!long.TryParse(txnRefStr, out long orderId))
                 {
-                    throw new FormatException("Invalid vnp_TxnRef format");
+                    throw new FormatException("Định dạng vnp_TxnRef không hợp lệ");
                 }
 
                 if (!long.TryParse(transactionNoStr, out long vnpayTranId))
                 {
-                    throw new FormatException("Invalid vnp_TransactionNo format");
+                    throw new FormatException("Định dạng vnp_TransactionNo không hợp lệ");
                 }
 
                 if (!long.TryParse(amountStr, out long amountInCents))
                 {
-                    throw new FormatException("Invalid vnp_Amount format");
+                    throw new FormatException("Định dạng vnp_Amount không hợp lệ");
                 }
 
                 decimal vnpAmount = amountInCents / 100m;
@@ -218,7 +218,7 @@ namespace Backend.Service.Payment
 
                 if (string.IsNullOrEmpty(vnpSecureHash))
                 {
-                    _log.Error("vnp_SecureHash is missing");
+                    _log.Error("vnp_SecureHash bị thiếu");
                     response.Message = "Có lỗi xảy ra trong quá trình xử lý";
                     return response;
                 }
@@ -227,7 +227,7 @@ namespace Backend.Service.Payment
 
                 if (!checkSignature)
                 {
-                    _log.Error("Invalid signature from VNPay");
+                    _log.Error("Chữ ký từ VNPay không hợp lệ");
                     response.Message = "Có lỗi xảy ra trong quá trình xử lý";
                     return response;
                 }
@@ -248,7 +248,7 @@ namespace Backend.Service.Payment
             }
             catch (Exception ex)
             {
-                _log.Error("Error processing VNPay return", ex);
+                _log.Error("Lỗi khi xử lý return từ VNPay", ex);
                 throw;
             }
         }
@@ -262,7 +262,7 @@ namespace Backend.Service.Payment
                     return new VNPayIPNResponseDto
                     {
                         RspCode = "99",
-                        Message = "Input data required"
+                        Message = "Dữ liệu đầu vào bị thiếu"
                     };
                 }
 
@@ -294,7 +294,7 @@ namespace Backend.Service.Payment
                     return new VNPayIPNResponseDto
                     {
                         RspCode = "99",
-                        Message = "Invalid data format"
+                        Message = "Định dạng dữ liệu không hợp lệ"
                     };
                 }
 
@@ -302,11 +302,11 @@ namespace Backend.Service.Payment
 
                 if (string.IsNullOrEmpty(vnpSecureHash))
                 {
-                    _log.Error("vnp_SecureHash is missing");
+                    _log.Error("vnp_SecureHash bị thiếu");
                     return new VNPayIPNResponseDto
                     {
                         RspCode = "97",
-                        Message = "Invalid signature"
+                        Message = "Chữ ký không hợp lệ"
                     };
                 }
 
@@ -314,11 +314,11 @@ namespace Backend.Service.Payment
 
                 if (!checkSignature)
                 {
-                    _log.InfoFormat("Invalid signature");
+                    _log.InfoFormat("Chữ ký không hợp lệ");
                     return new VNPayIPNResponseDto
                     {
                         RspCode = "97",
-                        Message = "Invalid signature"
+                        Message = "Chữ ký không hợp lệ"
                     };
                 }
 
@@ -330,7 +330,7 @@ namespace Backend.Service.Payment
                     return new VNPayIPNResponseDto
                     {
                         RspCode = "01",
-                        Message = "Order not found"
+                        Message = "Không tìm thấy đơn hàng"
                     };
                 }
 
@@ -339,7 +339,7 @@ namespace Backend.Service.Payment
                     return new VNPayIPNResponseDto
                     {
                         RspCode = "04",
-                        Message = "Invalid amount"
+                        Message = "Số tiền không hợp lệ"
                     };
                 }
 
@@ -348,7 +348,7 @@ namespace Backend.Service.Payment
                     return new VNPayIPNResponseDto
                     {
                         RspCode = "02",
-                        Message = "Order already confirmed"
+                        Message = "Đơn hàng đã được xác nhận"
                     };
                 }
 
@@ -370,16 +370,16 @@ namespace Backend.Service.Payment
                 return new VNPayIPNResponseDto
                 {
                     RspCode = "00",
-                    Message = "Confirm Success"
+                    Message = "Xác nhận thành công"
                 };
             }
             catch (Exception ex)
             {
-                _log.Error("Error processing VNPay IPN", ex);
+                _log.Error("Lỗi khi xử lý IPN từ VNPay", ex);
                 return new VNPayIPNResponseDto
                 {
                     RspCode = "99",
-                    Message = "Unknown error"
+                    Message = "Lỗi không xác định"
                 };
             }
         }

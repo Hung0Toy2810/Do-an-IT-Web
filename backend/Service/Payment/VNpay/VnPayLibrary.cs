@@ -34,10 +34,10 @@ public class VnPayLibrary
     public string CreateRequestUrl(string baseUrl, string vnpHashSecret)
     {
         if (string.IsNullOrEmpty(baseUrl))
-            throw new ArgumentException("baseUrl cannot be null or empty", nameof(baseUrl));
+            throw new ArgumentException("baseUrl không được null hoặc rỗng", nameof(baseUrl));
 
         if (string.IsNullOrEmpty(vnpHashSecret))
-            throw new ArgumentException("vnpHashSecret cannot be null or empty", nameof(vnpHashSecret));
+            throw new ArgumentException("vnpHashSecret không được null hoặc rỗng", nameof(vnpHashSecret));
 
         StringBuilder data = new();
         
@@ -50,7 +50,7 @@ public class VnPayLibrary
         }
 
         if (data.Length == 0)
-            throw new InvalidOperationException("No request data to create URL");
+            throw new InvalidOperationException("Không có dữ liệu yêu cầu để tạo URL");
 
         string queryString = data.ToString();
         
@@ -107,10 +107,10 @@ public class VnPayLibrary
     private static string HmacSHA512(string key, string inputData)
     {
         if (string.IsNullOrEmpty(key))
-            throw new ArgumentException("Key cannot be null or empty", nameof(key));
+            throw new ArgumentException("Khóa không được null hoặc rỗng", nameof(key));
 
         if (string.IsNullOrEmpty(inputData))
-            throw new ArgumentException("Input data cannot be null or empty", nameof(inputData));
+            throw new ArgumentException("Dữ liệu đầu vào không được null hoặc rỗng", nameof(inputData));
 
         byte[] keyBytes = Encoding.UTF8.GetBytes(key);
         byte[] inputBytes = Encoding.UTF8.GetBytes(inputData);

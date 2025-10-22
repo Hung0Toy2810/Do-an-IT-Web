@@ -32,15 +32,15 @@ namespace Backend.Service.Product
         public async Task<bool> IncreaseStockAsync(string productSlug, string variantSlug, int quantity)
         {
             if (quantity <= 0)
-                throw new ArgumentException("Quantity must be greater than 0", nameof(quantity));
+                throw new ArgumentException("Số lượng phải lớn hơn 0", nameof(quantity));
 
             var product = await _productRepository.GetBySlugAsync(productSlug);
             if (product == null)
-                throw new Backend.Exceptions.NotFoundException($"Product with slug '{productSlug}' not found");
+                throw new Backend.Exceptions.NotFoundException($"Không tìm thấy sản phẩm với slug '{productSlug}'");
 
             var variant = product.Variants.FirstOrDefault(v => v.Slug == variantSlug);
             if (variant == null)
-                throw new Backend.Exceptions.NotFoundException($"Variant with slug '{variantSlug}' not found");
+                throw new Backend.Exceptions.NotFoundException($"Không tìm thấy biến thể với slug '{variantSlug}'");
 
             variant.Stock += quantity;
             return await _productRepository.UpdateAsync(product);
@@ -49,18 +49,18 @@ namespace Backend.Service.Product
         public async Task<bool> DecreaseStockAsync(string productSlug, string variantSlug, int quantity)
         {
             if (quantity <= 0)
-                throw new ArgumentException("Quantity must be greater than 0", nameof(quantity));
+                throw new ArgumentException("Số lượng phải lớn hơn 0", nameof(quantity));
 
             var product = await _productRepository.GetBySlugAsync(productSlug);
             if (product == null)
-                throw new Backend.Exceptions.NotFoundException($"Product with slug '{productSlug}' not found");
+                throw new Backend.Exceptions.NotFoundException($"Không tìm thấy sản phẩm với slug '{productSlug}'");
 
             var variant = product.Variants.FirstOrDefault(v => v.Slug == variantSlug);
             if (variant == null)
-                throw new Backend.Exceptions.NotFoundException($"Variant with slug '{variantSlug}' not found");
+                throw new Backend.Exceptions.NotFoundException($"Không tìm thấy biến thể với slug '{variantSlug}'");
 
             if (variant.Stock < quantity)
-                throw new Backend.Exceptions.BusinessRuleException($"Insufficient stock. Current: {variant.Stock}, Requested: {quantity}");
+                throw new Backend.Exceptions.BusinessRuleException($"Số lượng tồn kho không đủ. Hiện tại: {variant.Stock}, Yêu cầu: {quantity}");
 
             variant.Stock -= quantity;
             return await _productRepository.UpdateAsync(product);
@@ -69,15 +69,15 @@ namespace Backend.Service.Product
         public async Task<bool> SetStockAsync(string productSlug, string variantSlug, int stock)
         {
             if (stock < 0)
-                throw new ArgumentException("Stock must be greater than or equal to 0", nameof(stock));
+                throw new ArgumentException("Tồn kho phải lớn hơn hoặc bằng 0", nameof(stock));
 
             var product = await _productRepository.GetBySlugAsync(productSlug);
             if (product == null)
-                throw new Backend.Exceptions.NotFoundException($"Product with slug '{productSlug}' not found");
+                throw new Backend.Exceptions.NotFoundException($"Không tìm thấy sản phẩm với slug '{productSlug}'");
 
             var variant = product.Variants.FirstOrDefault(v => v.Slug == variantSlug);
             if (variant == null)
-                throw new Backend.Exceptions.NotFoundException($"Variant with slug '{variantSlug}' not found");
+                throw new Backend.Exceptions.NotFoundException($"Không tìm thấy biến thể với slug '{variantSlug}'");
 
             variant.Stock = stock;
             return await _productRepository.UpdateAsync(product);
@@ -87,14 +87,14 @@ namespace Backend.Service.Product
         {
             var product = await _productRepository.GetBySlugAsync(productSlug);
             if (product == null)
-                throw new Backend.Exceptions.NotFoundException($"Product '{productSlug}' not found");
+                throw new Backend.Exceptions.NotFoundException($"Không tìm thấy sản phẩm '{productSlug}'");
 
             var variant = product.Variants.FirstOrDefault(v => v.Slug == variantSlug);
             if (variant == null)
-                throw new Backend.Exceptions.NotFoundException($"Variant '{variantSlug}' not found");
+                throw new Backend.Exceptions.NotFoundException($"Không tìm thấy biến thể '{variantSlug}'");
 
             if (variant.Stock < quantity)
-                throw new Backend.Exceptions.BusinessRuleException($"Insufficient stock. Available: {variant.Stock}");
+                throw new Backend.Exceptions.BusinessRuleException($"Số lượng tồn kho không đủ. Sẵn có: {variant.Stock}");
 
             var reservation = new StockReservation
             {
@@ -138,7 +138,7 @@ namespace Backend.Service.Product
         {
             var product = await _productRepository.GetBySlugAsync(productSlug);
             if (product == null)
-                throw new Backend.Exceptions.NotFoundException($"Product '{productSlug}' not found");
+                throw new Backend.Exceptions.NotFoundException($"Không tìm thấy sản phẩm '{productSlug}'");
 
             return product.Variants.ToDictionary(v => v.Slug, v => v.Stock);
         }
@@ -156,7 +156,7 @@ namespace Backend.Service.Product
                     if (product == null)
                     {
                         result.FailedCount++;
-                        result.Errors.Add($"Product '{update.ProductSlug}' not found");
+                        result.Errors.Add($"Không tìm thấy sản phẩm '{update.ProductSlug}'");
                         continue;
                     }
 
@@ -164,7 +164,7 @@ namespace Backend.Service.Product
                     if (variant == null)
                     {
                         result.FailedCount++;
-                        result.Errors.Add($"Variant '{update.VariantSlug}' not found");
+                        result.Errors.Add($"Không tìm thấy biến thể '{update.VariantSlug}'");
                         continue;
                     }
 
@@ -173,7 +173,7 @@ namespace Backend.Service.Product
                 catch (Exception ex)
                 {
                     result.FailedCount++;
-                    result.Errors.Add($"Error: {ex.Message}");
+                    result.Errors.Add($"Lỗi: {ex.Message}");
                 }
             }
 

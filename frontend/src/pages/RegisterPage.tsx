@@ -1,9 +1,7 @@
-// ==================== pages/RegisterPage.tsx ====================
 import React, { useState } from 'react';
 import { ArrowLeft, Mail, User, Lock, Shield } from 'lucide-react';
-import { notify } from '../components/NotificationProvider'; // Sửa import
+import { notify } from '../components/NotificationProvider';
 import { useNavigate } from 'react-router-dom';
-
 
 export default function RegisterPage() {
   const [step, setStep] = useState<1 | 2>(1);
@@ -13,6 +11,7 @@ export default function RegisterPage() {
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
   const handleSendOtp = async () => {
     if (!phoneNumber) {
       notify('warning', 'Vui lòng nhập số điện thoại');
@@ -40,10 +39,10 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (response.ok) {
-        notify('success', 'Mã OTP đã được gửi đến số điện thoại của bạn');
+        notify('success', data.message);
         setStep(2);
       } else {
-        notify('error', data.message || 'Không thể gửi OTP');
+        notify('error', data.message);
       }
     } catch (error) {
       notify('error', 'Không thể kết nối đến server');
@@ -89,12 +88,12 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (response.ok) {
-        notify('success', 'Đăng ký thành công! Vui lòng đăng nhập');
+        notify('success', data.message);
         setTimeout(() => {
           navigate('/login');
         }, 1500);
       } else {
-        notify('error', data.message || 'Đăng ký thất bại');
+        notify('error', data.message);
       }
     } catch (error) {
       notify('error', 'Không thể kết nối đến server');

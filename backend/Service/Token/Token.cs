@@ -27,18 +27,18 @@ namespace Backend.Service.Token
 
         public JwtTokenService(IConfiguration config, IConnectionMultiplexer redis, ILogger<JwtTokenService> logger)
         {
-            _config = config ?? throw new ArgumentNullException(nameof(config));
-            _redis = redis ?? throw new ArgumentNullException(nameof(redis));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            var jwtKey = _config["Jwt:SecretKey"] ?? _config["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:SecretKey or Jwt:Key must be configured.");
-            if (jwtKey.Length < 32) throw new InvalidOperationException("Jwt key must be at least 32 characters.");
+            _config = config ?? throw new ArgumentNullException(nameof(config), "Cấu hình không được null");
+            _redis = redis ?? throw new ArgumentNullException(nameof(redis), "Redis không được null");
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger), "Logger không được null");
+            var jwtKey = _config["Jwt:SecretKey"] ?? _config["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:SecretKey hoặc Jwt:Key phải được cấu hình.");
+            if (jwtKey.Length < 32) throw new InvalidOperationException("Khóa JWT phải dài ít nhất 32 ký tự.");
             _key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         }
 
         public async Task<string> GenerateTokenAsync(string id, string username, string role, string clientIp)
         {
             if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(username))
-                throw new ArgumentException("User ID and username cannot be empty.");
+                throw new ArgumentException("ID người dùng và tên người dùng không được rỗng.");
 
             string GenerateSecureRandomString(int byteLength)
             {
@@ -77,7 +77,7 @@ namespace Backend.Service.Token
             await db.StringSetAsync(sessionKey, sessionData, TimeSpan.FromMinutes(expirationMinutes));
             await db.ListRightPushAsync($"tokens:{id}", jti);
 
-            _logger.LogInformation("Generated token for user {Username} with JTI {Jti}", username, jti);
+            _logger.LogInformation("Đã tạo token cho người dùng {Username} với JTI {Jti}", username, jti);
             return accessToken;
         }
 
@@ -86,8 +86,8 @@ namespace Backend.Service.Token
             var tokenHandler = new JwtSecurityTokenHandler();
             if (!tokenHandler.CanReadToken(token))
             {
-                _logger.LogWarning("Invalid token format.");
-                throw new SecurityTokenException("Invalid token format.");
+                _logger.LogWarning("Định dạng token không hợp lệ.");
+                throw new SecurityTokenException("Định dạng token không hợp lệ.");
             }
 
             var jwtToken = tokenHandler.ReadJwtToken(token);
@@ -95,8 +95,8 @@ namespace Backend.Service.Token
             var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
             if (jtiClaim == null || userIdClaim == null)
             {
-                _logger.LogWarning("Token does not contain JTI or UserId.");
-                throw new SecurityTokenException("Invalid token: JTI or UserId missing.");
+                _logger.LogWarning("Token không chứa JTI hoặc UserId.");
+                throw new SecurityTokenException("Token không hợp lệ: Thiếu JTI hoặc UserId.");
             }
 
             var jti = jtiClaim.Value;
@@ -104,7 +104,7 @@ namespace Backend.Service.Token
             var ttl = jwtToken.ValidTo - DateTime.UtcNow;
             if (ttl <= TimeSpan.Zero)
             {
-                _logger.LogWarning("Token with JTI {Jti} is already expired.", jti);
+                _logger.LogWarning("Token với JTI {Jti} đã hết hạn.", jti);
                 return;
             }
 
@@ -113,7 +113,7 @@ namespace Backend.Service.Token
             await db.KeyDeleteAsync($"session:{userId}:{jti}");
             await db.ListRemoveAsync($"tokens:{userId}", jti);
 
-            _logger.LogInformation("Revoked token with JTI {Jti} for user {UserId}, TTL: {TTL}", jti, userId, ttl);
+            _logger.LogInformation("Đã thu hồi token với JTI {Jti} cho người dùng {UserId}, TTL: {TTL}", jti, userId, ttl);
         }
 
         public async Task RevokeAllTokensExceptCurrentAsync(string userId, string currentTokenJti)
@@ -127,7 +127,7 @@ namespace Backend.Service.Token
                     await db.StringSetAsync($"revoked:{tokenJti}", "true", TimeSpan.FromMinutes(_config.GetValue<int>("Jwt:ExpirationMinutes", 1440)));
                     await db.KeyDeleteAsync($"session:{userId}:{tokenJti}");
                     await db.ListRemoveAsync($"tokens:{userId}", tokenJti);
-                    _logger.LogInformation("Revoked token with JTI {Jti} for user {UserId}", tokenJti, userId);
+                    _logger.LogInformation("Đã thu hồi token với JTI {Jti} cho người dùng {UserId}", tokenJti, userId);
                 }
             }
         }

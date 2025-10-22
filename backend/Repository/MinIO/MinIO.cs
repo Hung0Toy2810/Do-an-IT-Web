@@ -38,39 +38,36 @@ namespace Backend.Repository.MinIO
         public FileRepository(IMinioClient minioClient, IConfiguration configuration, ILogger<FileRepository> logger)
         {
             _minioClient = minioClient ?? throw new ArgumentNullException(nameof(minioClient));
-            _minioPublicUrl = configuration["Minio:PublicUrl"] ?? throw new ArgumentNullException("Minio:PublicUrl is not configured");
+            _minioPublicUrl = configuration["Minio:PublicUrl"] ?? throw new ArgumentNullException("Thiếu cấu hình Minio:PublicUrl.");
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         // Upload ảnh người dùng và trả về key
         public async Task<string> UploadFileAsync(IFormFile file, string bucketName)
         {
-            // Kiểm tra dữ liệu đầu vào
             if (file == null || file.Length == 0)
-                throw new ArgumentException("File cannot be null or empty.", nameof(file));
+                throw new ArgumentException("Tệp không được để trống.", nameof(file));
 
-            // Kiểm tra Content-Type để đảm bảo là ảnh
             if (!AllowedImageContentTypes.Contains(file.ContentType))
             {
                 _logger.LogError("Invalid file type: {ContentType}. Only image files are allowed.", file.ContentType);
-                throw new ArgumentException("Only image files (JPEG, PNG, GIF, BMP, WebP) are allowed.", nameof(file));
+                throw new ArgumentException("Chỉ cho phép tệp hình ảnh (JPEG, PNG, GIF, BMP, WebP).", nameof(file));
             }
 
             await EnsureBucketExists(bucketName);
-            await SetPublicBucketPolicy(bucketName); // Add this line to ensure the bucket is public
+            await SetPublicBucketPolicy(bucketName);
             string fileName = $"{Guid.NewGuid()}_{file.FileName}";
 
-            // Kiểm tra định dạng ảnh bằng ImageSharp
             using var stream = file.OpenReadStream();
             try
             {
                 using var image = await Image.LoadAsync(stream);
-                stream.Position = 0; // Reset stream để upload
+                stream.Position = 0;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "File {FileName} is not a valid image.", file.FileName);
-                throw new ArgumentException("File is not a valid image.", nameof(file));
+                throw new ArgumentException("Tệp không phải là hình ảnh hợp lệ.", nameof(file));
             }
 
             await _minioClient.PutObjectAsync(new PutObjectArgs()
@@ -79,16 +76,16 @@ namespace Backend.Repository.MinIO
                 .WithStreamData(stream)
                 .WithObjectSize(file.Length)
                 .WithContentType(file.ContentType));
+
             _logger.LogInformation("Uploaded user image: {FileName}", fileName);
             return fileName;
         }
 
-        // Upload ảnh sản phẩm (chuyển đổi sang JPG, công khai) và trả về key
+        // Upload ảnh sản phẩm (chuyển sang JPG, công khai)
         public async Task<string> ConvertAndUploadPublicFileAsJpgAsync(Stream fileStream, string bucketName, string fileName, long maxSize)
         {
-            // Kiểm tra dữ liệu đầu vào
             if (fileStream == null || fileStream.Length == 0)
-                throw new ArgumentException("File stream cannot be null or empty.", nameof(fileStream));
+                throw new ArgumentException("Luồng tệp không được để trống.", nameof(fileStream));
 
             try
             {
@@ -96,16 +93,15 @@ namespace Backend.Repository.MinIO
                 await SetPublicBucketPolicy(bucketName);
                 string jpgFileName = Path.ChangeExtension(fileName, ".jpg");
 
-                // Kiểm tra định dạng ảnh bằng ImageSharp
                 try
                 {
                     using var image = await Image.LoadAsync(fileStream);
-                    fileStream.Position = 0; // Reset stream để xử lý tiếp
+                    fileStream.Position = 0;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "File {FileName} is not a valid image.", fileName);
-                    throw new ArgumentException("File is not a valid image.", nameof(fileName));
+                    throw new ArgumentException("Tệp không phải là hình ảnh hợp lệ.", nameof(fileName));
                 }
 
                 if (fileStream.Length <= maxSize)
@@ -141,17 +137,12 @@ namespace Backend.Repository.MinIO
                         currentSize = tempStream.Length;
 
                         if (currentSize > targetSize && quality > 10)
-                        {
                             quality -= 10;
-                        }
                         else if (currentSize < targetSize * 0.9 && quality < 90)
-                        {
                             quality += 5;
-                        }
                         else
-                        {
                             break;
-                        }
+
                     } while (quality > 0);
 
                     tempStream.Position = 0;
@@ -161,8 +152,7 @@ namespace Backend.Repository.MinIO
                         .WithStreamData(tempStream)
                         .WithObjectSize(tempStream.Length)
                         .WithContentType("image/jpeg"));
-                    _logger.LogInformation("Public image compressed to ~{MaxSize}MB and uploaded: {FileName}, Quality: {Quality}",
-                        maxSize / (1024.0 * 1024.0), jpgFileName, quality);
+                    _logger.LogInformation("Public image compressed and uploaded: {FileName}, Quality: {Quality}", jpgFileName, quality);
                 }
 
                 return jpgFileName;
@@ -170,17 +160,17 @@ namespace Backend.Repository.MinIO
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error uploading public image to JPG: {FileName}", fileName);
-                throw;
+                throw new InvalidOperationException($"Lỗi khi tải ảnh công khai '{fileName}': {ex.Message}", ex);
             }
         }
 
-        // Lấy public URL từ key (dành cho ảnh sản phẩm)
+        // Lấy public URL từ key
         public async Task<string> GetStaticPublicFileUrl(string bucketName, string objectName)
         {
             if (string.IsNullOrWhiteSpace(bucketName))
-                throw new ArgumentException("Bucket name cannot be empty", nameof(bucketName));
+                throw new ArgumentException("Tên bucket không được để trống.", nameof(bucketName));
             if (string.IsNullOrWhiteSpace(objectName))
-                throw new ArgumentException("Object name cannot be empty", nameof(objectName));
+                throw new ArgumentException("Tên đối tượng không được để trống.", nameof(objectName));
 
             await EnsureBucketExists(bucketName);
             await SetPublicBucketPolicy(bucketName);
@@ -190,7 +180,7 @@ namespace Backend.Repository.MinIO
             return publicUrl;
         }
 
-        // Lấy URL tạm thời từ key
+        // Lấy URL tạm thời
         public async Task<string> GetPresignedUrlAsync(string bucketName, string fileName, TimeSpan expiry)
         {
             var presignedUrlArgs = new PresignedGetObjectArgs()
@@ -206,9 +196,9 @@ namespace Backend.Repository.MinIO
         public async Task DeleteFileAsync(string bucketName, string fileName)
         {
             if (string.IsNullOrWhiteSpace(bucketName))
-                throw new ArgumentException("Bucket name cannot be null or empty.", nameof(bucketName));
+                throw new ArgumentException("Tên bucket không được để trống.", nameof(bucketName));
             if (string.IsNullOrWhiteSpace(fileName))
-                throw new ArgumentException("File name cannot be null or empty.", nameof(fileName));
+                throw new ArgumentException("Tên tệp không được để trống.", nameof(fileName));
 
             try
             {
@@ -222,16 +212,16 @@ namespace Backend.Repository.MinIO
             catch (MinioException ex)
             {
                 _logger.LogError(ex, "Failed to delete object '{FileName}' from bucket '{BucketName}'", fileName, bucketName);
-                throw new InvalidOperationException($"Failed to delete object '{fileName}' from bucket '{bucketName}': {ex.Message}", ex);
+                throw new InvalidOperationException($"Không thể xóa tệp '{fileName}' trong bucket '{bucketName}': {ex.Message}", ex);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unexpected error while deleting object '{FileName}' from bucket '{BucketName}'", fileName, bucketName);
-                throw new InvalidOperationException($"An unexpected error occurred while deleting object '{fileName}' from bucket '{bucketName}': {ex.Message}", ex);
+                throw new InvalidOperationException($"Đã xảy ra lỗi không mong muốn khi xóa tệp '{fileName}' trong bucket '{bucketName}': {ex.Message}", ex);
             }
         }
 
-        // Hàm hỗ trợ: Đảm bảo bucket tồn tại
+        // Đảm bảo bucket tồn tại
         private async Task EnsureBucketExists(string bucketName)
         {
             var bucketExistsArgs = new BucketExistsArgs().WithBucket(bucketName);
@@ -244,7 +234,7 @@ namespace Backend.Repository.MinIO
             }
         }
 
-        // Hàm hỗ trợ: Thiết lập chính sách công khai cho bucket
+        // Thiết lập chính sách công khai cho bucket
         private async Task SetPublicBucketPolicy(string bucketName)
         {
             try
@@ -269,7 +259,7 @@ namespace Backend.Repository.MinIO
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to set public policy for bucket {BucketName}", bucketName);
-                throw;
+                throw new InvalidOperationException($"Không thể thiết lập chính sách công khai cho bucket '{bucketName}': {ex.Message}", ex);
             }
         }
     }

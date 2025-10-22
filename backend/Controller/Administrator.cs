@@ -19,201 +19,149 @@ namespace Backend.Controllers
             _administratorService = administratorService ?? throw new ArgumentNullException(nameof(administratorService));
         }
 
-        /// <summary>
-        /// Creates a new administrator with the provided username and password.
-        /// </summary>
-        /// <param name="createAdministrator">The administrator data including username and password.</param>
-        /// <returns>A response indicating the result of the creation operation.</returns>
         [HttpPost]
         public async Task<IActionResult> CreateAdministrator([FromBody] CreateAdministrator createAdministrator)
         {
-            if (!ModelState.IsValid)
-                throw new ArgumentException("Invalid input data.");
-
             await _administratorService.CreateAdministratorAsync(createAdministrator);
             return Created($"api/administrators/{createAdministrator.Username}", new
             {
-                Message = "Administrator created successfully.",
-                Username = createAdministrator.Username
+                Message = "Tạo tài khoản quản trị viên thành công",
+                Data = new { Username = createAdministrator.Username }
             });
         }
 
-        /// <summary>
-        /// Authenticates an administrator with the provided username and password.
-        /// </summary>
-        /// <param name="loginAdministrator">The login data including username and password.</param>
-        /// <returns>A response containing the JWT token and its expiration time.</returns>
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginAdministrator loginAdministrator)
         {
-            if (!ModelState.IsValid)
-                throw new ArgumentException("Invalid input data.");
-
             var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             var response = await _administratorService.LoginAsync(loginAdministrator, clientIp);
-            return Ok(response);
+            return Ok(new
+            {
+                Message = "Đăng nhập thành công",
+                Data = response
+            });
         }
 
-        /// <summary>
-        /// Deletes an administrator by setting their status to inactive.
-        /// </summary>
-        /// <param name="username">The username of the administrator.</param>
-        /// <returns>A response indicating the result of the deletion operation.</returns>
         [HttpDelete("{username}")]
         [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> DeleteAdministrator(string username)
         {
             await _administratorService.DeleteAdministratorByUsernameAsync(username);
-            return Ok(new { Message = "Administrator account deactivated successfully." });
+            return Ok(new { Message = "Xóa tài khoản quản trị viên thành công" });
         }
 
-        /// <summary>
-        /// Deletes the current administrator account by setting status to inactive.
-        /// </summary>
-        /// <returns>A response indicating the result of the deletion operation.</returns>
         [HttpDelete("me")]
         [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> DeleteCurrentAdministrator()
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userIdClaim == null || !Guid.TryParse(userIdClaim, out Guid administratorId))
-                throw new UnauthorizedAccessException("Invalid user ID in token.");
+            var administratorId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                ?? throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng"));
 
             await _administratorService.DeleteAdministratorAsync(administratorId);
-            return Ok(new { Message = "Your administrator account deactivated successfully." });
+            return Ok(new { Message = "Xóa tài khoản thành công" });
         }
 
-        /// <summary>
-        /// Changes the password of an administrator.
-        /// </summary>
-        /// <param name="username">The username of the administrator.</param>
-        /// <param name="request">The old and new password data.</param>
-        /// <returns>A response indicating the result of the password change operation.</returns>
         [HttpPut("{username}/password")]
         [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> ChangePassword(string username, [FromBody] ChangePasswordRequest request)
         {
-            if (!ModelState.IsValid)
-                throw new ArgumentException("Invalid input data.");
-
             await _administratorService.ChangePasswordByUsernameAsync(username, request);
-            return Ok(new { Message = "Password changed successfully." });
+            return Ok(new { Message = "Đổi mật khẩu thành công" });
         }
 
-        /// <summary>
-        /// Changes the password of the current administrator.
-        /// </summary>
-        /// <param name="request">The old and new password data.</param>
-        /// <returns>A response indicating the result of the password change operation.</returns>
         [HttpPut("password")]
         [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> ChangeCurrentPassword([FromBody] ChangePasswordRequest request)
         {
-            if (!ModelState.IsValid)
-                throw new ArgumentException("Invalid input data.");
-
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userIdClaim == null || !Guid.TryParse(userIdClaim, out Guid administratorId))
-                throw new UnauthorizedAccessException("Invalid user ID in token.");
+            var administratorId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                ?? throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng"));
 
             await _administratorService.ChangePasswordAsync(administratorId, request);
-            return Ok(new { Message = "Your password changed successfully." });
+            return Ok(new { Message = "Đổi mật khẩu thành công" });
         }
 
-        /// <summary>
-        /// Gets the administrator's information by username.
-        /// </summary>
-        /// <param name="username">The username of the administrator.</param>
-        /// <returns>The administrator's information.</returns>
         [HttpGet("{username}")]
         [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> GetAdministratorInfo(string username)
         {
             var administratorInfo = await _administratorService.GetAdministratorInfoByUsernameAsync(username);
-            return Ok(administratorInfo);
+            return Ok(new
+            {
+                Message = "Lấy thông tin thành công",
+                Data = administratorInfo
+            });
         }
 
-        /// <summary>
-        /// Gets the current administrator's information based on the JWT token.
-        /// </summary>
-        /// <returns>The current administrator's information.</returns>
         [HttpGet("me")]
         [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> GetCurrentAdministratorInfo()
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim))
-                throw new UnauthorizedAccessException("Invalid or missing user identifier in token.");
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                ?? throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng");
 
             var administratorInfo = await _administratorService.GetAdministratorInfoByTokenAsync(userIdClaim);
-            return Ok(administratorInfo);
+            return Ok(new
+            {
+                Message = "Lấy thông tin thành công",
+                Data = administratorInfo
+            });
         }
 
-        /// <summary>
-        /// Gets all administrators' information (for administrators only).
-        /// </summary>
-        /// <returns>A list of all administrators' information.</returns>
         [HttpGet]
         [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> GetAllAdministrators()
         {
             var administrators = await _administratorService.GetAllAdministratorsAsync();
-            return Ok(administrators);
+            return Ok(new
+            {
+                Message = "Lấy danh sách quản trị viên thành công",
+                Data = administrators
+            });
         }
 
-        /// <summary>
-        /// Gets all customers' information (for administrators only).
-        /// </summary>
-        /// <returns>A list of all customers' information.</returns>
         [HttpGet("customers")]
         [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> GetAllCustomers()
         {
             var customers = await _administratorService.GetAllCustomersAsync();
-            return Ok(customers);
+            return Ok(new
+            {
+                Message = "Lấy danh sách khách hàng thành công",
+                Data = customers
+            });
         }
 
-        /// <summary>
-        /// Logs out the current device by revoking the current token.
-        /// </summary>
-        /// <returns>A response indicating the result of the logout operation.</returns>
         [HttpPost("logout")]
         [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> LogoutCurrentDevice()
         {
             var token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             if (string.IsNullOrEmpty(token))
-                throw new ArgumentException("No token provided.");
+                throw new ArgumentException("Không tìm thấy token");
 
             await _administratorService.LogoutCurrentDeviceAsync(token);
-            return Ok(new { Message = "Logged out successfully from current device." });
+            return Ok(new { Message = "Đăng xuất thành công" });
         }
 
-        /// <summary>
-        /// Logs out all other devices except the current one.
-        /// </summary>
-        /// <returns>A response indicating the result of the logout operation.</returns>
         [HttpPost("logout/other-devices")]
         [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> LogoutAllOtherDevices()
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userIdClaim == null)
-                throw new UnauthorizedAccessException("Invalid user ID in token.");
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                ?? throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng");
 
             var token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
             var tokenHandler = new JwtSecurityTokenHandler();
 
             if (!tokenHandler.CanReadToken(token))
-                throw new ArgumentException("Invalid token format.");
+                throw new ArgumentException("Token không hợp lệ");
 
             var jwtToken = tokenHandler.ReadJwtToken(token);
-            var jtiClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value;
-            if (jtiClaim == null)
-                throw new ArgumentException("Token does not contain JTI.");
+            var jtiClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value 
+                ?? throw new ArgumentException("Token không chứa JTI");
 
             await _administratorService.LogoutAllOtherDevicesAsync(userIdClaim, jtiClaim);
-            return Ok(new { Message = "Logged out successfully from all other devices." });
+            return Ok(new { Message = "Đăng xuất các thiết bị khác thành công" });
         }
     }
 }

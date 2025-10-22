@@ -55,16 +55,16 @@ namespace Backend.Service.AdministratorService
         public async Task CreateAdministratorAsync(CreateAdministrator createAdministrator)
         {
             if (createAdministrator == null)
-                throw new ArgumentNullException(nameof(createAdministrator), "Administrator data cannot be null.");
+                throw new ArgumentNullException(nameof(createAdministrator), "Dữ liệu quản trị viên không được để trống.");
 
             if (string.IsNullOrWhiteSpace(createAdministrator.Username))
-                throw new ArgumentException("Username cannot be empty.", nameof(createAdministrator.Username));
+                throw new ArgumentException("Tên đăng nhập không được để trống.", nameof(createAdministrator.Username));
 
             if (string.IsNullOrWhiteSpace(createAdministrator.Password))
-                throw new ArgumentException("Password cannot be empty.", nameof(createAdministrator.Password));
+                throw new ArgumentException("Mật khẩu không được để trống.", nameof(createAdministrator.Password));
 
             if (await _administratorRepository.IsUsernameTakenAsync(createAdministrator.Username))
-                throw new InvalidOperationException("An administrator with this username already exists.");
+                throw new InvalidOperationException("Tên đăng nhập đã tồn tại.");
 
             var administrator = new Administrator
             {
@@ -91,23 +91,23 @@ namespace Backend.Service.AdministratorService
         public async Task<LoginResponse> LoginAsync(LoginAdministrator loginAdministrator, string clientIp)
         {
             if (loginAdministrator == null)
-                throw new ArgumentNullException(nameof(loginAdministrator), "Login data cannot be null.");
+                throw new ArgumentNullException(nameof(loginAdministrator), "Dữ liệu đăng nhập không được để trống.");
 
             if (string.IsNullOrWhiteSpace(loginAdministrator.Username))
-                throw new ArgumentException("Username cannot be empty.", nameof(loginAdministrator.Username));
+                throw new ArgumentException("Tên đăng nhập không được để trống.", nameof(loginAdministrator.Username));
 
             if (string.IsNullOrWhiteSpace(loginAdministrator.Password))
-                throw new ArgumentException("Password cannot be empty.", nameof(loginAdministrator.Password));
+                throw new ArgumentException("Mật khẩu không được để trống.", nameof(loginAdministrator.Password));
 
             var administrator = await _administratorRepository.GetAdministratorByUsernameAsync(loginAdministrator.Username);
             if (administrator == null)
-                throw new UnauthorizedAccessException("Invalid username or password.");
+                throw new UnauthorizedAccessException("Sai tên đăng nhập hoặc mật khẩu.");
 
             if (!_passwordHasher.VerifyPassword(loginAdministrator.Password, administrator.PasswordHash))
-                throw new UnauthorizedAccessException("Invalid username or password.");
+                throw new UnauthorizedAccessException("Sai tên đăng nhập hoặc mật khẩu.");
 
             if (!administrator.Status)
-                throw new UnauthorizedAccessException("Administrator account is inactive.");
+                throw new UnauthorizedAccessException("Tài khoản quản trị đã bị khóa.");
 
             var token = await _jwtTokenService.GenerateTokenAsync(
                 id: administrator.Id.ToString(),
@@ -124,7 +124,7 @@ namespace Backend.Service.AdministratorService
             {
                 Token = token,
                 Expiration = expiration,
-                Message = "Login successful."
+                Message = "Đăng nhập thành công."
             };
         }
 
@@ -132,10 +132,10 @@ namespace Backend.Service.AdministratorService
         {
             var administrator = await _administratorRepository.GetAdministratorByIdAsync(administratorId);
             if (administrator == null)
-                throw new ArgumentException("Administrator not found.");
+                throw new ArgumentException("Không tìm thấy quản trị viên.");
 
             if (!administrator.Status)
-                throw new InvalidOperationException("Administrator account is already inactive.");
+                throw new InvalidOperationException("Tài khoản quản trị đã bị khóa.");
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -155,10 +155,10 @@ namespace Backend.Service.AdministratorService
         {
             var administrator = await _administratorRepository.GetAdministratorByUsernameAsync(username);
             if (administrator == null)
-                throw new ArgumentException("Administrator not found.");
+                throw new ArgumentException("Không tìm thấy quản trị viên.");
 
             if (!administrator.Status)
-                throw new InvalidOperationException("Administrator account is already inactive.");
+                throw new InvalidOperationException("Tài khoản quản trị đã bị khóa.");
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -177,23 +177,23 @@ namespace Backend.Service.AdministratorService
         public async Task ChangePasswordAsync(Guid administratorId, ChangePasswordRequest request)
         {
             if (request == null)
-                throw new ArgumentNullException(nameof(request), "Password change request cannot be null.");
+                throw new ArgumentNullException(nameof(request), "Yêu cầu đổi mật khẩu không được để trống.");
 
             if (string.IsNullOrWhiteSpace(request.OldPassword))
-                throw new ArgumentException("Old password cannot be empty.", nameof(request.OldPassword));
+                throw new ArgumentException("Mật khẩu cũ không được để trống.", nameof(request.OldPassword));
 
             if (string.IsNullOrWhiteSpace(request.NewPassword))
-                throw new ArgumentException("New password cannot be empty.", nameof(request.NewPassword));
+                throw new ArgumentException("Mật khẩu mới không được để trống.", nameof(request.NewPassword));
 
             var administrator = await _administratorRepository.GetAdministratorByIdAsync(administratorId);
             if (administrator == null)
-                throw new ArgumentException("Administrator not found.");
+                throw new ArgumentException("Không tìm thấy quản trị viên.");
 
             if (!administrator.Status)
-                throw new UnauthorizedAccessException("Administrator account is inactive.");
+                throw new UnauthorizedAccessException("Tài khoản quản trị đã bị khóa.");
 
             if (!_passwordHasher.VerifyPassword(request.OldPassword, administrator.PasswordHash))
-                throw new UnauthorizedAccessException("Incorrect old password.");
+                throw new UnauthorizedAccessException("Mật khẩu cũ không đúng.");
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -212,23 +212,23 @@ namespace Backend.Service.AdministratorService
         public async Task ChangePasswordByUsernameAsync(string username, ChangePasswordRequest request)
         {
             if (request == null)
-                throw new ArgumentNullException(nameof(request), "Password change request cannot be null.");
+                throw new ArgumentNullException(nameof(request), "Yêu cầu đổi mật khẩu không được để trống.");
 
             if (string.IsNullOrWhiteSpace(request.OldPassword))
-                throw new ArgumentException("Old password cannot be empty.", nameof(request.OldPassword));
+                throw new ArgumentException("Mật khẩu cũ không được để trống.", nameof(request.OldPassword));
 
             if (string.IsNullOrWhiteSpace(request.NewPassword))
-                throw new ArgumentException("New password cannot be empty.", nameof(request.NewPassword));
+                throw new ArgumentException("Mật khẩu mới không được để trống.", nameof(request.NewPassword));
 
             var administrator = await _administratorRepository.GetAdministratorByUsernameAsync(username);
             if (administrator == null)
-                throw new ArgumentException("Administrator not found.");
+                throw new ArgumentException("Không tìm thấy quản trị viên.");
 
             if (!administrator.Status)
-                throw new UnauthorizedAccessException("Administrator account is inactive.");
+                throw new UnauthorizedAccessException("Tài khoản quản trị đã bị khóa.");
 
             if (!_passwordHasher.VerifyPassword(request.OldPassword, administrator.PasswordHash))
-                throw new UnauthorizedAccessException("Incorrect old password.");
+                throw new UnauthorizedAccessException("Mật khẩu cũ không đúng.");
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -248,10 +248,10 @@ namespace Backend.Service.AdministratorService
         {
             var administrator = await _administratorRepository.GetAdministratorByIdAsync(administratorId);
             if (administrator == null)
-                throw new ArgumentException("Administrator not found.");
+                throw new ArgumentException("Không tìm thấy quản trị viên.");
 
             if (!administrator.Status)
-                throw new UnauthorizedAccessException("Administrator account is inactive.");
+                throw new UnauthorizedAccessException("Tài khoản quản trị đã bị khóa.");
 
             return new AdministratorInfoDto
             {
@@ -263,14 +263,14 @@ namespace Backend.Service.AdministratorService
         public async Task<AdministratorInfoDto> GetAdministratorInfoByTokenAsync(string userIdClaim)
         {
             if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out Guid administratorId))
-                throw new UnauthorizedAccessException("Invalid user ID in token.");
+                throw new UnauthorizedAccessException("Mã người dùng trong token không hợp lệ.");
 
             var administrator = await _administratorRepository.GetAdministratorByIdAsync(administratorId);
             if (administrator == null)
-                throw new ArgumentException("Administrator not found.");
+                throw new ArgumentException("Không tìm thấy quản trị viên.");
 
             if (!administrator.Status)
-                throw new UnauthorizedAccessException("Administrator account is inactive.");
+                throw new UnauthorizedAccessException("Tài khoản quản trị đã bị khóa.");
 
             return new AdministratorInfoDto
             {
@@ -283,10 +283,10 @@ namespace Backend.Service.AdministratorService
         {
             var administrator = await _administratorRepository.GetAdministratorByUsernameAsync(username);
             if (administrator == null)
-                throw new ArgumentException("Administrator not found.");
+                throw new ArgumentException("Không tìm thấy quản trị viên.");
 
             if (!administrator.Status)
-                throw new UnauthorizedAccessException("Administrator account is inactive.");
+                throw new UnauthorizedAccessException("Tài khoản quản trị đã bị khóa.");
 
             return new AdministratorInfoDto
             {
