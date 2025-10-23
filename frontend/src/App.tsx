@@ -7,7 +7,8 @@ import ProfilePage from './pages/ProfilePage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import { BrowserRouter, Routes, Route } from 'react-router-dom'; 
 import ChangePasswordPage from './pages/ChangePasswordPage';
-
+import RegisterAdminPage from './pages/RegisterAdminPage';
+import AdminLoginPage from './pages/AdminLoginPage';
 export default function App() {
   return (
     <BrowserRouter>
@@ -19,6 +20,8 @@ export default function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/FogotPassword" element={<ForgotPasswordPage />} />
           <Route path="/change-password" element={<ChangePasswordPage />} />
+          <Route path="/register-admin" element={<RegisterAdminPage />} />
+          <Route path="/admin-login" element={<AdminLoginPage />} />
         </Routes>
       </NotificationProvider>
     </BrowserRouter>
