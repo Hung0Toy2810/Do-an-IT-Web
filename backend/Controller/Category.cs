@@ -20,7 +20,7 @@ namespace Backend.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> CreateCategory([FromBody] CreateCategoryDto createCategory)
         {
             await _categoryService.CreateCategoryAsync(createCategory);
@@ -72,7 +72,7 @@ namespace Backend.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> UpdateCategory(long id, [FromBody] UpdateCategoryDto updateCategory)
         {
             await _categoryService.UpdateCategoryAsync(id, updateCategory);
@@ -80,7 +80,7 @@ namespace Backend.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> DeleteCategory(long id)
         {
             await _categoryService.DeleteCategoryAsync(id);
@@ -88,7 +88,7 @@ namespace Backend.Controllers
         }
 
         [HttpPost("subcategories")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> CreateSubCategory([FromBody] CreateSubCategoryDto createSubCategory)
         {
             await _categoryService.CreateSubCategoryAsync(createSubCategory);
@@ -129,7 +129,7 @@ namespace Backend.Controllers
         }
 
         [HttpPut("subcategories/{id}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> UpdateSubCategory(long id, [FromBody] UpdateSubCategoryDto updateSubCategory)
         {
             await _categoryService.UpdateSubCategoryAsync(id, updateSubCategory);
@@ -137,7 +137,7 @@ namespace Backend.Controllers
         }
 
         [HttpDelete("subcategories/{id}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> DeleteSubCategory(long id)
         {
             await _categoryService.DeleteSubCategoryAsync(id);

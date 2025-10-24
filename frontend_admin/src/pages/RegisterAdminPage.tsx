@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, User, Lock } from 'lucide-react';
+import { User, Lock } from 'lucide-react';
 import { setCookie } from '../utils/cookies';
 import { notify } from '../components/NotificationProvider';
 import { useNavigate } from 'react-router-dom';
@@ -34,11 +34,10 @@ export default function RegisterAdminPage() {
       const data = await response.json();
 
       if (response.ok && data.data?.username) {
-        // Fallback token for testing, assuming API might return a token
         setCookie('auth_token', data.data.token || 'admin_token', 7);
         notify('success', data.message || 'Tạo tài khoản quản trị viên thành công');
         setTimeout(() => {
-          navigate('/admin'); // Redirect to admin dashboard
+          navigate('/admin');
         }, 1000);
       } else {
         notify('error', data.message || 'Tạo tài khoản thất bại');
@@ -58,17 +57,8 @@ export default function RegisterAdminPage() {
   };
 
   return (
-    <div className="min-h-screen px-4 py-6 bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 sm:py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center px-4 py-6 bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 sm:py-12 sm:px-6 lg:px-8">
       <div className="container max-w-md mx-auto">
-        <button
-          //
-          className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 mb-6 sm:mb-8 text-xs sm:text-sm font-medium text-violet-800 transition-all bg-white hover:bg-violet-50 shadow-sm hover:shadow-md"
-          style={{ borderRadius: '12px' }}
-        >
-          <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          Quay lại
-        </button>
-
         <div 
           className="p-6 bg-white border shadow-2xl border-violet-100/50 sm:p-8 md:p-10"
           style={{ borderRadius: '20px' }}

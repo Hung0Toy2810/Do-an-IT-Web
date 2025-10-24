@@ -1,4 +1,5 @@
 // ==================== components/NotificationProvider.tsx ====================
+/* eslint-disable react-refresh/only-export-components */
 import React, { useState } from 'react';
 import NotificationItem from './NotificationItem';
 import { Notification, NotificationType } from '../types';

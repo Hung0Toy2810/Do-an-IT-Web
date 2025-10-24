@@ -1,2 +1,7 @@
 export type NotificationType = 'success' | 'error' | 'warning' | 'info';
-export type PageType = 'home' | 'login' | 'register' | 'profile';
+
+export interface Notification {
+  id: number;
+  type: NotificationType;
+  message: string;
+}
