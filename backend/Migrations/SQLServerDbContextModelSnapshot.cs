@@ -107,14 +107,26 @@ namespace backend.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasMaxLength(200)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(200)")
+                        .UseCollation("Vietnamese_CI_AS");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("Name")
                         .IsUnique()
                         .HasDatabaseName("IX_Category_Name");
+
+                    b.HasIndex("Slug")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Category_Slug");
 
                     b.ToTable("Categories");
                 });
@@ -160,7 +172,6 @@ namespace backend.Migrations
                         .HasDatabaseName("IX_Customer_CustomerName");
 
                     b.HasIndex("Email")
-                        .IsUnique()
                         .HasDatabaseName("IX_Customer_Email");
 
                     b.HasIndex("PhoneNumber")
@@ -186,6 +197,27 @@ namespace backend.Migrations
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ReceiverName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ReceiverPhone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TrackingCode")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAt")
@@ -193,6 +225,15 @@ namespace backend.Migrations
 
                     b.HasIndex("CustomerId")
                         .HasDatabaseName("IX_Invoice_CustomerId");
+
+                    b.HasIndex("ReceiverPhone")
+                        .HasDatabaseName("IX_Invoice_ReceiverPhone");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_Invoice_Status");
+
+                    b.HasIndex("TrackingCode")
+                        .HasDatabaseName("IX_Invoice_TrackingCode");
 
                     b.ToTable("Invoices");
                 });
@@ -208,11 +249,6 @@ namespace backend.Migrations
                     b.Property<long>("InvoiceId")
                         .HasColumnType("bigint");
 
-                    b.Property<string>("Option")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<decimal>("Price")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -223,12 +259,22 @@ namespace backend.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
+                    b.Property<long>("ShipmentBatchId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("VariantSlug")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Option")
-                        .HasDatabaseName("IX_InvoiceDetail_Option");
-
                     b.HasIndex("ProductId");
+
+                    b.HasIndex("ShipmentBatchId");
+
+                    b.HasIndex("VariantSlug")
+                        .HasDatabaseName("IX_InvoiceDetail_Option");
 
                     b.HasIndex("InvoiceId", "ProductId")
                         .HasDatabaseName("IX_InvoiceDetail_InvoiceId_ProductId");
@@ -237,6 +283,35 @@ namespace backend.Migrations
                         {
                             t.HasCheckConstraint("CK_InvoiceDetail_Quantity_Positive", "[Quantity] > 0");
                         });
+                });
+
+            modelBuilder.Entity("Backend.Model.Entity.InvoiceStatusHistory", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("InvoiceId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("IX_InvoiceStatusHistory_CreatedAt");
+
+                    b.HasIndex("InvoiceId")
+                        .HasDatabaseName("IX_InvoiceStatusHistory_InvoiceId");
+
+                    b.ToTable("InvoiceStatusHistories");
                 });
 
             modelBuilder.Entity("Backend.Model.Entity.Product", b =>
@@ -272,9 +347,6 @@ namespace backend.Migrations
                     b.Property<long>("ProductId")
                         .HasColumnType("bigint");
 
-                    b.Property<long>("PurchasesCount")
-                        .HasColumnType("bigint");
-
                     b.Property<long>("ViewsCount")
                         .HasColumnType("bigint");
 
@@ -289,8 +361,6 @@ namespace backend.Migrations
 
                     b.ToTable("ProductDailyStats", t =>
                         {
-                            t.HasCheckConstraint("CK_ProductDailyStat_PurchasesCount_NonNegative", "[PurchasesCount] >= 0");
-
                             t.HasCheckConstraint("CK_ProductDailyStat_ViewsCount_NonNegative", "[ViewsCount] >= 0");
                         });
                 });
@@ -326,6 +396,51 @@ namespace backend.Migrations
                     b.ToTable("RecentlyViews");
                 });
 
+            modelBuilder.Entity("Backend.Model.Entity.ShipmentBatch", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("BatchCode")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal?>("ImportPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("ImportedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ImportedQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<long>("ProductId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("RemainingQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("VariantSlug")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchCode")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ShipmentBatch_BatchCode");
+
+                    b.HasIndex("ProductId")
+                        .HasDatabaseName("IX_ShipmentBatch_ProductId");
+
+                    b.ToTable("ShipmentBatches");
+                });
+
             modelBuilder.Entity("Backend.Model.Entity.SubCategory", b =>
                 {
                     b.Property<long>("Id")
@@ -339,8 +454,16 @@ namespace backend.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasMaxLength(200)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(200)")
+                        .UseCollation("Vietnamese_CI_AS");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
 
                     b.HasKey("Id");
 
@@ -351,7 +474,61 @@ namespace backend.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_SubCategory_CategoryId_Name");
 
+                    b.HasIndex("CategoryId", "Slug")
+                        .IsUnique()
+                        .HasDatabaseName("IX_SubCategory_CategoryId_Slug");
+
                     b.ToTable("SubCategories");
+                });
+
+            modelBuilder.Entity("Backend.Model.Entity.VNPayPayment", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("InvoiceId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsSuccess")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ResponseCode")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("TransactionCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_VNPayPayment_InvoiceId");
+
+                    b.HasIndex("TransactionCode")
+                        .IsUnique()
+                        .HasDatabaseName("IX_VNPayPayment_TransactionCode");
+
+                    b.ToTable("VNPayPayments");
                 });
 
             modelBuilder.Entity("Backend.Model.Entity.Cart", b =>
@@ -516,9 +693,28 @@ namespace backend.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Backend.Model.Entity.ShipmentBatch", "ShipmentBatch")
+                        .WithMany("InvoiceDetails")
+                        .HasForeignKey("ShipmentBatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Invoice");
 
                     b.Navigation("Product");
+
+                    b.Navigation("ShipmentBatch");
+                });
+
+            modelBuilder.Entity("Backend.Model.Entity.InvoiceStatusHistory", b =>
+                {
+                    b.HasOne("Backend.Model.Entity.Invoice", "Invoice")
+                        .WithMany("StatusHistories")
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
                 });
 
             modelBuilder.Entity("Backend.Model.Entity.Product", b =>
@@ -562,6 +758,17 @@ namespace backend.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("Backend.Model.Entity.ShipmentBatch", b =>
+                {
+                    b.HasOne("Backend.Model.Entity.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("Backend.Model.Entity.SubCategory", b =>
                 {
                     b.HasOne("Backend.Model.Entity.Category", "Category")
@@ -571,6 +778,17 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("Backend.Model.Entity.VNPayPayment", b =>
+                {
+                    b.HasOne("Backend.Model.Entity.Invoice", "Invoice")
+                        .WithOne("VNPayPayment")
+                        .HasForeignKey("Backend.Model.Entity.VNPayPayment", "InvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
                 });
 
             modelBuilder.Entity("Backend.Model.Entity.Category", b =>
@@ -590,6 +808,10 @@ namespace backend.Migrations
             modelBuilder.Entity("Backend.Model.Entity.Invoice", b =>
                 {
                     b.Navigation("InvoiceDetails");
+
+                    b.Navigation("StatusHistories");
+
+                    b.Navigation("VNPayPayment");
                 });
 
             modelBuilder.Entity("Backend.Model.Entity.Product", b =>
@@ -601,6 +823,11 @@ namespace backend.Migrations
                     b.Navigation("ProductDailyStats");
 
                     b.Navigation("RecentlyViews");
+                });
+
+            modelBuilder.Entity("Backend.Model.Entity.ShipmentBatch", b =>
+                {
+                    b.Navigation("InvoiceDetails");
                 });
 
             modelBuilder.Entity("Backend.Model.Entity.SubCategory", b =>

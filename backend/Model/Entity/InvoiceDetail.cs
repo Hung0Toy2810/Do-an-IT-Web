@@ -28,6 +28,11 @@ namespace Backend.Model.Entity
         public decimal Price { get; set; }
 
         [Required, MaxLength(100)]
-        public string Option { get; set; } = string.Empty;
+        public string VariantSlug { get; set; } = string.Empty;
+
+        [Required]
+        public long ShipmentBatchId { get; set; }
+        [ForeignKey(nameof(ShipmentBatchId))]
+        public virtual ShipmentBatch ShipmentBatch { get; set; } = null!;
     }
 }

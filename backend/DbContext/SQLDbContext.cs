@@ -25,6 +25,11 @@ namespace Backend.SQLDbContext
         public DbSet<ProductDailyStat> ProductDailyStats { get; set; }
         public DbSet<RecentlyView> RecentlyViews { get; set; }
         public DbSet<SubCategory> SubCategories { get; set; }
+        public DbSet<InvoiceStatusHistory> InvoiceStatusHistories { get; set; }
+        // ShipmentBatch
+        public DbSet<ShipmentBatch> ShipmentBatches { get; set; }
+        // VNPayPayment
+        public DbSet<VNPayPayment> VNPayPayments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -62,7 +67,6 @@ namespace Backend.SQLDbContext
                     .HasDatabaseName("IX_Customer_Status");
 
                 entity.HasIndex(e => e.Email)
-                    .IsUnique()
                     .HasDatabaseName("IX_Customer_Email");
 
                 // Cấu hình StandardShippingAddress là Owned Entity
@@ -191,6 +195,12 @@ namespace Backend.SQLDbContext
                     shippingAddress.Property(e => e.WardsName).HasColumnName("ShippingAddress_WardsName");
                     shippingAddress.Property(e => e.DetailAddress).HasColumnName("ShippingAddress_DetailAddress");
                 });
+                entity.HasIndex(e => e.Status)
+                    .HasDatabaseName("IX_Invoice_Status");
+                entity.HasIndex(e => e.ReceiverPhone)
+                    .HasDatabaseName("IX_Invoice_ReceiverPhone");
+                entity.HasIndex(e => e.TrackingCode)
+                    .HasDatabaseName("IX_Invoice_TrackingCode");
             });
 
             // Cấu hình cho InvoiceDetail
@@ -207,6 +217,11 @@ namespace Backend.SQLDbContext
                     .WithMany(e => e.InvoiceDetails)
                     .HasForeignKey(e => e.ProductId)
                     .OnDelete(DeleteBehavior.Restrict);
+                // Quan hệ 1-n với ShipmentBatch
+                entity.HasOne(e => e.ShipmentBatch)
+                    .WithMany(e => e.InvoiceDetails)
+                    .HasForeignKey(e => e.ShipmentBatchId)
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 // Index composite cho InvoiceId và ProductId để tối ưu chi tiết hóa đơn
                 entity.HasIndex(e => new { e.InvoiceId, e.ProductId })
@@ -216,7 +231,7 @@ namespace Backend.SQLDbContext
                 entity.ToTable(tb => tb.HasCheckConstraint("CK_InvoiceDetail_Quantity_Positive", "[Quantity] > 0"));
 
                 // Index cho Option nếu truy vấn theo option
-                entity.HasIndex(e => e.Option)
+                entity.HasIndex(e => e.VariantSlug)
                     .HasDatabaseName("IX_InvoiceDetail_Option");
             });
 
@@ -238,7 +253,6 @@ namespace Backend.SQLDbContext
                 entity.ToTable(tb =>
                 {
                     tb.HasCheckConstraint("CK_ProductDailyStat_ViewsCount_NonNegative", "[ViewsCount] >= 0");
-                    tb.HasCheckConstraint("CK_ProductDailyStat_PurchasesCount_NonNegative", "[PurchasesCount] >= 0");
                 });
 
                 // Index cho Date để tối ưu báo cáo tổng hợp theo ngày
@@ -270,6 +284,44 @@ namespace Backend.SQLDbContext
                 entity.HasIndex(e => new { e.CustomerId, e.ViewedAt })
                     .HasDatabaseName("IX_RecentlyView_CustomerId_ViewedAt");
             });
+            modelBuilder.Entity<InvoiceStatusHistory>(entity =>
+            {
+                entity.HasOne(e => e.Invoice)
+                    .WithMany(e => e.StatusHistories)
+                    .HasForeignKey(e => e.InvoiceId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => e.InvoiceId)
+                    .HasDatabaseName("IX_InvoiceStatusHistory_InvoiceId");
+
+                entity.HasIndex(e => e.CreatedAt)
+                    .HasDatabaseName("IX_InvoiceStatusHistory_CreatedAt");
+            });
+            modelBuilder.Entity<VNPayPayment>(entity =>
+            {
+                entity.HasOne(e => e.Invoice)
+                    .WithOne(e => e.VNPayPayment)
+                    .HasForeignKey<VNPayPayment>(e => e.InvoiceId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => e.TransactionCode)
+                    .IsUnique()
+                    .HasDatabaseName("IX_VNPayPayment_TransactionCode");
+
+                entity.HasIndex(e => e.InvoiceId)
+                    .IsUnique()
+                    .HasDatabaseName("IX_VNPayPayment_InvoiceId");
+            });
+            modelBuilder.Entity<ShipmentBatch>(entity =>
+            {
+                entity.HasIndex(e => e.BatchCode)
+                    .IsUnique()
+                    .HasDatabaseName("IX_ShipmentBatch_BatchCode");
+
+                entity.HasIndex(e => e.ProductId)
+                    .HasDatabaseName("IX_ShipmentBatch_ProductId");
+            });
+
         }
     }
 }

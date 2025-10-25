@@ -108,4 +108,22 @@ namespace Backend.Model.dto.Product
         public int PageSize { get; set; }
         public int TotalPages { get; set; }
     }
+
+    public class UpdateVariantPriceDto
+    {
+        public decimal OriginalPrice { get; set; }
+        public decimal DiscountedPrice { get; set; }
+    }
+
+    public class UpdateDiscontinuedDto
+    {
+        public bool IsDiscontinued { get; set; }
+    }
+
+    public class ReserveStockDto
+    {
+        public int Quantity { get; set; }
+        public string OrderId { get; set; } = string.Empty;
+        public int ExpirationMinutes { get; set; } = 15;
+    }
 }

@@ -3,22 +3,21 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Backend.Model.Entity
 {
-    public class ProductDailyStat
+    public class InvoiceStatusHistory
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public long Id { get; set; }
 
         [Required]
-        public long ProductId { get; set; }
-
-        [ForeignKey(nameof(ProductId))]
-        public virtual Product Product { get; set; } = null!;
-
-        [Required]
-        public DateTime Date { get; set; }
+        public long InvoiceId { get; set; }
+        [ForeignKey(nameof(InvoiceId))]
+        public virtual Invoice Invoice { get; set; } = null!;
 
         [Required]
-        public long ViewsCount { get; set; } = 0;
+        public string Status { get; set; } = string.Empty;
+
+        [Required]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }
