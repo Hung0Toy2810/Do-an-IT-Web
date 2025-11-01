@@ -266,7 +266,9 @@ namespace Backend.Service.Product
                 ProductSlug = product.Slug,
                 ProductName = product.Name,
                 FirstImage = variant.Images.FirstOrDefault(),
-                Attributes = variant.Attributes
+                Attributes = variant.Attributes,
+                OriginalPrice = variant.OriginalPrice,
+                DiscountedPrice = variant.DiscountedPrice
             };
         }
 
@@ -284,7 +286,9 @@ namespace Backend.Service.Product
                 ProductSlug = product.Slug,
                 ProductName = product.Name,
                 FirstImage = variant.Images.FirstOrDefault(),
-                Attributes = variant.Attributes
+                Attributes = variant.Attributes,
+                OriginalPrice = variant.OriginalPrice,
+                DiscountedPrice = variant.DiscountedPrice
             };
         }
 

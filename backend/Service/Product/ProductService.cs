@@ -9,11 +9,22 @@ namespace Backend.Service.Product
 {
     public interface IProductService
     {
-        Task<long> CreateProductAsync(CreateProductDto dto);
+        Task<ProductDetailDto> CreateProductAsync(CreateProductDto dto);
         Task<ProductSearchResultDto> SearchProductsAsync(ProductSearchRequestDto request);
         Task<SubCategoryProductResultDto> GetProductsBySubCategoryAsync(SubCategoryProductRequestDto request);
         Task<SubCategoryBrandResultDto> GetBrandsBySubCategoryAsync(string subCategorySlug);
         Task<ProductFilterResultDto> GetProductsWithAdvancedFiltersAsync(ProductFilterRequestDto request);
+        Task<ProductDetailDto?> GetProductDetailByIdAsync(long productId);
+        Task<ProductDetailDto?> GetProductDetailBySlugAsync(string productSlug);
+        Task<ProductCardDto?> GetProductCardByIdAsync(long productId);
+        Task<ProductCardDto?> GetProductCardBySlugAsync(string productSlug);
+        Task<VariantInfoDto?> GetVariantInfoAsync(long productId, string variantSlug);
+        Task<VariantInfoDto?> GetVariantInfoAsync(string productSlug, string variantSlug);
+
+        Task<List<string>> UpdateVariantImagesAsync(string productSlug, string variantSlug, List<IFormFile> images);
+        Task<bool> UpdateVariantPriceAsync(string productSlug, string variantSlug, decimal originalPrice, decimal discountedPrice);
+        Task<BulkOperationResultDto> BulkUpdatePricesAsync(List<BulkPriceUpdateDto> updates);
+        Task<bool> UpdateIsDiscontinuedAsync(string productSlug, bool isDiscontinued);
     }
 
     public class ProductService : IProductService
@@ -35,7 +46,7 @@ namespace Backend.Service.Product
             _productSearchService = productSearchService;
         }
 
-        public async Task<long> CreateProductAsync(CreateProductDto dto)
+        public async Task<ProductDetailDto> CreateProductAsync(CreateProductDto dto)
         {
             var subCategoryExists = await _dbContext.SubCategories
                 .AnyAsync(sc => sc.Id == dto.SubCategoryId);
@@ -58,7 +69,9 @@ namespace Backend.Service.Product
             {
                 var product = new Backend.Model.Entity.Product
                 {
-                    SubCategoryId = dto.SubCategoryId
+                    SubCategoryId = dto.SubCategoryId,
+                    Rating = 0.0f,
+                    TotalRatings = 0
                 };
 
                 _dbContext.Products.Add(product);
@@ -75,10 +88,22 @@ namespace Backend.Service.Product
                     Variants = dto.Variants
                 };
 
-                await _productDocumentService.CreateProductAsync(createDocumentDto);
+                var productDocument = await _productDocumentService.CreateProductAsync(createDocumentDto);
                 await transaction.CommitAsync();
 
-                return product.Id;
+                return new ProductDetailDto
+                {
+                    Id = productDocument.Id,
+                    Name = productDocument.Name,
+                    Slug = productDocument.Slug,
+                    Brand = productDocument.Brand,
+                    Description = productDocument.Description,
+                    IsDiscontinued = productDocument.IsDiscontinued,
+                    Variants = productDocument.Variants,
+                    AttributeOptions = productDocument.AttributeOptions,
+                    Rating = product.Rating,
+                    TotalRatings = product.TotalRatings
+                };
             }
             catch
             {
@@ -383,6 +408,185 @@ namespace Backend.Service.Product
         {
             public long ProductId { get; set; }
             public decimal MinPrice { get; set; }
+        }
+
+        public async Task<ProductDetailDto?> GetProductDetailByIdAsync(long productId)
+        {
+            // Gọi ProductDocumentService để lấy chi tiết sản phẩm từ MongoDB
+            var productDocument = await _productDocumentService.GetProductDetailByIdAsync(productId);
+            if (productDocument == null) return null;
+
+            // Lấy Rating và TotalRatings từ SQL dựa trên Id
+            var sqlProduct = await _dbContext.Products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == productId);
+
+            return new ProductDetailDto
+            {
+                Id = productDocument.Id,
+                Name = productDocument.Name,
+                Slug = productDocument.Slug,
+                Brand = productDocument.Brand,
+                Description = productDocument.Description,
+                IsDiscontinued = productDocument.IsDiscontinued,
+                Variants = productDocument.Variants,
+                AttributeOptions = productDocument.AttributeOptions,
+                Rating = sqlProduct?.Rating ?? 0.0f,
+                TotalRatings = sqlProduct?.TotalRatings ?? 0
+            };
+        }
+
+        public async Task<ProductDetailDto?> GetProductDetailBySlugAsync(string productSlug)
+        {
+            // Gọi ProductDocumentService để lấy chi tiết sản phẩm từ MongoDB
+            var productDocument = await _productDocumentService.GetProductDetailBySlugAsync(productSlug);
+            if (productDocument == null) return null;
+
+            // Lấy Rating và TotalRatings từ SQL dựa trên Id
+            var sqlProduct = await _dbContext.Products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == productDocument.Id);
+
+            return new ProductDetailDto
+            {
+                Id = productDocument.Id,
+                Name = productDocument.Name,
+                Slug = productDocument.Slug,
+                Brand = productDocument.Brand,
+                Description = productDocument.Description,
+                IsDiscontinued = productDocument.IsDiscontinued,
+                Variants = productDocument.Variants,
+                AttributeOptions = productDocument.AttributeOptions,
+                Rating = sqlProduct?.Rating ?? 0.0f,
+                TotalRatings = sqlProduct?.TotalRatings ?? 0
+            };
+        }
+
+        public async Task<ProductCardDto?> GetProductCardByIdAsync(long productId)
+        {
+            // Gọi ProductDocumentService để lấy product card từ MongoDB
+            var productCard = await _productDocumentService.GetProductCardByIdAsync(productId);
+            if (productCard == null) return null;
+
+            // Lấy Rating và TotalRatings từ SQL dựa trên Id
+            var sqlProduct = await _dbContext.Products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == productId);
+
+            return new ProductCardDto
+            {
+                Id = productCard.Id,
+                Name = productCard.Name,
+                Slug = productCard.Slug,
+                Brand = productCard.Brand,
+                FirstImage = productCard.FirstImage,
+                MinDiscountedPrice = productCard.MinDiscountedPrice,
+                OriginalPriceOfMinVariant = productCard.OriginalPriceOfMinVariant,
+                IsDiscontinued = productCard.IsDiscontinued,
+                Rating = sqlProduct?.Rating ?? 0.0f,
+                TotalRatings = sqlProduct?.TotalRatings ?? 0
+            };
+        }
+
+        public async Task<ProductCardDto?> GetProductCardBySlugAsync(string productSlug)
+        {
+            // Gọi ProductDocumentService để lấy product card từ MongoDB
+            var productCard = await _productDocumentService.GetProductCardBySlugAsync(productSlug);
+            if (productCard == null) return null;
+
+            // Lấy Rating và TotalRatings từ SQL dựa trên Id
+            var sqlProduct = await _dbContext.Products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == productCard.Id);
+
+            return new ProductCardDto
+            {
+                Id = productCard.Id,
+                Name = productCard.Name,
+                Slug = productCard.Slug,
+                Brand = productCard.Brand,
+                FirstImage = productCard.FirstImage,
+                MinDiscountedPrice = productCard.MinDiscountedPrice,
+                OriginalPriceOfMinVariant = productCard.OriginalPriceOfMinVariant,
+                IsDiscontinued = productCard.IsDiscontinued,
+                Rating = sqlProduct?.Rating ?? 0.0f,
+                TotalRatings = sqlProduct?.TotalRatings ?? 0
+            };
+        }
+
+        public async Task<VariantInfoDto?> GetVariantInfoAsync(long productId, string variantSlug)
+        {
+            // Gọi ProductDocumentService để lấy variant info từ MongoDB
+            var variantInfo = await _productDocumentService.GetVariantInfoAsync(productId, variantSlug);
+            if (variantInfo == null) return null;
+
+            // Lấy Rating và TotalRatings từ SQL dựa trên Id
+            var sqlProduct = await _dbContext.Products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == productId);
+
+            return new VariantInfoDto
+            {
+                ProductId = variantInfo.ProductId,
+                ProductSlug = variantInfo.ProductSlug,
+                ProductName = variantInfo.ProductName,
+                FirstImage = variantInfo.FirstImage,
+                Attributes = variantInfo.Attributes,
+                OriginalPrice = variantInfo.OriginalPrice,
+                DiscountedPrice = variantInfo.DiscountedPrice,
+                Rating = sqlProduct?.Rating ?? 0.0f,
+                TotalRatings = sqlProduct?.TotalRatings ?? 0
+            };
+        }
+
+        public async Task<VariantInfoDto?> GetVariantInfoAsync(string productSlug, string variantSlug)
+        {
+            // Gọi ProductDocumentService để lấy variant info từ MongoDB
+            var variantInfo = await _productDocumentService.GetVariantInfoAsync(productSlug, variantSlug);
+            if (variantInfo == null) return null;
+
+            // Lấy Rating và TotalRatings từ SQL dựa trên Id
+            var sqlProduct = await _dbContext.Products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == variantInfo.ProductId);
+
+            return new VariantInfoDto
+            {
+                ProductId = variantInfo.ProductId,
+                ProductSlug = variantInfo.ProductSlug,
+                ProductName = variantInfo.ProductName,
+                FirstImage = variantInfo.FirstImage,
+                Attributes = variantInfo.Attributes,
+                OriginalPrice = variantInfo.OriginalPrice,
+                DiscountedPrice = variantInfo.DiscountedPrice,
+                Rating = sqlProduct?.Rating ?? 0.0f,
+                TotalRatings = sqlProduct?.TotalRatings ?? 0
+            };
+        }
+
+        // Các phương thức mới
+        public async Task<List<string>> UpdateVariantImagesAsync(string productSlug, string variantSlug, List<IFormFile> images)
+        {
+            // Chuyển tiếp tới ProductDocumentService
+            return await _productDocumentService.UpdateVariantImagesAsync(productSlug, variantSlug, images);
+        }
+
+        public async Task<bool> UpdateVariantPriceAsync(string productSlug, string variantSlug, decimal originalPrice, decimal discountedPrice)
+        {
+            // Chuyển tiếp tới ProductDocumentService
+            return await _productDocumentService.UpdateVariantPriceAsync(productSlug, variantSlug, originalPrice, discountedPrice);
+        }
+
+        public async Task<BulkOperationResultDto> BulkUpdatePricesAsync(List<BulkPriceUpdateDto> updates)
+        {
+            // Chuyển tiếp tới ProductDocumentService
+            return await _productDocumentService.BulkUpdatePricesAsync(updates);
+        }
+
+        public async Task<bool> UpdateIsDiscontinuedAsync(string productSlug, bool isDiscontinued)
+        {
+            // Chuyển tiếp tới ProductDocumentService
+            return await _productDocumentService.UpdateIsDiscontinuedAsync(productSlug, isDiscontinued);
         }
     }
 }

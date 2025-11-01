@@ -12,6 +12,10 @@ namespace Backend.Model.Entity
         public long SubCategoryId { get; set; }
         [ForeignKey(nameof(SubCategoryId))]
         public virtual SubCategory SubCategory { get; set; } = null!;
+        [Required]
+        public float Rating { get; set; } = 0.0f;
+        [Required]
+        public long TotalRatings { get; set; } = 0;
 
         public virtual ICollection<InvoiceDetail> InvoiceDetails { get; set; } = new List<InvoiceDetail>();
         public virtual ICollection<RecentlyView> RecentlyViews { get; set; } = new List<RecentlyView>();

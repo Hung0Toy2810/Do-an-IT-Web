@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace backend.Migrations
 {
     [DbContext(typeof(SQLServerDbContext))]
-    [Migration("20251025012454_InitialCreate")]
+    [Migration("20251027154233_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -325,7 +325,13 @@ namespace backend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<float>("Rating")
+                        .HasColumnType("real");
+
                     b.Property<long>("SubCategoryId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("TotalRatings")
                         .HasColumnType("bigint");
 
                     b.HasKey("Id");

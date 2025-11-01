@@ -18,6 +18,8 @@ using Backend.Service.CategoryService;
 using Backend.Repository.CategoryRepository;
 using Backend.Service.Product;
 using Backend.Repository.Product;
+using Backend.Service.Inventory;
+using Backend.Repository;
 
 namespace Backend 
 {
@@ -147,6 +149,8 @@ namespace Backend
                     services.AddScoped<IProductSearchService, ProductSearchService>();
                     services.AddScoped<IProductStockService, ProductStockService>();
                     services.AddScoped<IProductService, ProductService>();
+                    services.AddScoped<IInventoryService, InventoryService>();
+                    services.AddScoped<IShipmentBatchRepository, ShipmentBatchRepository>();
 
                 })
                 .ConfigureWebHostDefaults(webBuilder =>

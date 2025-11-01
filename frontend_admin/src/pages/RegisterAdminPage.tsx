@@ -1,7 +1,8 @@
+// pages/RegisterAdminPage.tsx
 import React, { useState } from 'react';
 import { User, Lock } from 'lucide-react';
 import { setCookie } from '../utils/cookies';
-import { notify } from '../components/NotificationProvider';
+import { notify } from '../utils/notify';
 import { useNavigate } from 'react-router-dom';
 
 export default function RegisterAdminPage() {
@@ -13,7 +14,7 @@ export default function RegisterAdminPage() {
   const handleRegister = async () => {
     const trimmedUsername = username.trim();
     if (!trimmedUsername || !password) {
-      notify('warning', 'Vui lòng nhập đầy đủ thông tin');
+      notify.warning('Vui lòng nhập đầy đủ thông tin');
       return;
     }
 
@@ -22,28 +23,21 @@ export default function RegisterAdminPage() {
     try {
       const response = await fetch('http://localhost:5067/api/administrators', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          Username: trimmedUsername,
-          Password: password,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Username: trimmedUsername, Password: password }),
       });
 
       const data = await response.json();
 
       if (response.ok && data.data?.username) {
         setCookie('auth_token', data.data.token || 'admin_token', 7);
-        notify('success', data.message || 'Tạo tài khoản quản trị viên thành công');
-        setTimeout(() => {
-          navigate('/admin');
-        }, 1000);
+        notify.success(data.message || 'Tạo tài khoản quản trị viên thành công');
+        setTimeout(() => navigate('/admin'), 1000);
       } else {
-        notify('error', data.message || 'Tạo tài khoản thất bại');
+        notify.error(data.message || 'Tạo tài khoản thất bại');
       }
     } catch (error) {
-      notify('error', 'Không thể kết nối đến server');
+      notify.error('Không thể kết nối đến server');
       console.error('Register error:', error);
     } finally {
       setLoading(false);
@@ -51,23 +45,15 @@ export default function RegisterAdminPage() {
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleRegister();
-    }
+    if (e.key === 'Enter') handleRegister();
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-6 bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 sm:py-12 sm:px-6 lg:px-8">
+    <div className="flex items-center justify-center min-h-screen px-4 py-6 bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 sm:py-12 sm:px-6 lg:px-8">
       <div className="container max-w-md mx-auto">
-        <div 
-          className="p-6 bg-white border shadow-2xl border-violet-100/50 sm:p-8 md:p-10"
-          style={{ borderRadius: '20px' }}
-        >
+        <div className="p-6 bg-white border shadow-2xl border-violet-100/50 sm:p-8 md:p-10" style={{ borderRadius: '20px' }}>
           <div className="mb-6 text-center sm:mb-8">
-            <div 
-              className="inline-flex items-center justify-center w-12 h-12 mb-3 shadow-lg sm:w-16 sm:h-16 bg-gradient-to-br from-violet-600 to-violet-800 sm:mb-4"
-              style={{ borderRadius: '16px' }}
-            >
+            <div className="inline-flex items-center justify-center w-12 h-12 mb-3 shadow-lg sm:w-16 sm:h-16 bg-gradient-to-br from-violet-600 to-violet-800 sm:mb-4" style={{ borderRadius: '16px' }}>
               <User className="w-6 h-6 text-white sm:w-8 sm:h-8" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold mb-1.5 sm:mb-2 bg-gradient-to-r from-violet-700 to-violet-900 bg-clip-text text-transparent">
@@ -78,9 +64,7 @@ export default function RegisterAdminPage() {
 
           <div className="space-y-4 sm:space-y-5">
             <div className="space-y-1.5 sm:space-y-2">
-              <label htmlFor="username" className="block text-xs font-semibold text-gray-700 sm:text-sm">
-                Tên đăng nhập
-              </label>
+              <label htmlFor="username" className="block text-xs font-semibold text-gray-700 sm:text-sm">Tên đăng nhập</label>
               <div className="relative">
                 <User className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 pointer-events-none left-3 sm:left-4 top-1/2 sm:w-5 sm:h-5" />
                 <input
@@ -97,9 +81,7 @@ export default function RegisterAdminPage() {
             </div>
 
             <div className="space-y-1.5 sm:space-y-2">
-              <label htmlFor="password" className="block text-xs font-semibold text-gray-700 sm:text-sm">
-                Mật khẩu
-              </label>
+              <label htmlFor="password" className="block text-xs font-semibold text-gray-700 sm:text-sm">Mật khẩu</label>
               <div className="relative">
                 <Lock className="absolute w-4 h-4 text-gray-400 -translate-y-1/2 pointer-events-none left-3 sm:left-4 top-1/2 sm:w-5 sm:h-5" />
                 <input
@@ -129,29 +111,21 @@ export default function RegisterAdminPage() {
                   </svg>
                   Đang đăng ký...
                 </span>
-              ) : (
-                'Đăng ký'
-              )}
+              ) : 'Đăng ký'}
             </button>
           </div>
 
           <div className="pt-5 mt-6 text-center border-t sm:mt-8 sm:pt-6 border-violet-100">
             <p className="text-xs font-medium text-gray-600 sm:text-sm">
               Đã có tài khoản?{' '}
-              <button
-                onClick={() => navigate('/admin-login')}
-                className="font-semibold transition-colors text-violet-700 hover:text-violet-900"
-              >
+              <button onClick={() => navigate('/admin-login')} className="font-semibold transition-colors text-violet-700 hover:text-violet-900">
                 Đăng nhập ngay
               </button>
             </p>
           </div>
 
-          <div 
-            className="p-3 mt-5 text-center text-white sm:mt-6 sm:p-4 bg-gradient-to-r from-violet-600 to-violet-800"
-            style={{ borderRadius: '14px' }}
-          >
-            <p className="text-xs font-semibold mb-0.5 sm:mb-1">🎉 Chào mừng quản trị viên</p>
+          <div className="p-3 mt-5 text-center text-white sm:mt-6 sm:p-4 bg-gradient-to-r from-violet-600 to-violet-800" style={{ borderRadius: '14px' }}>
+            <p className="text-xs font-semibold mb-0.5 sm:mb-1">Chào mừng quản trị viên</p>
             <p className="text-[10px] sm:text-xs text-violet-100">Tạo tài khoản để quản lý hệ thống</p>
           </div>
         </div>

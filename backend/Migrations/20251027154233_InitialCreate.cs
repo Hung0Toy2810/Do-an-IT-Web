@@ -126,7 +126,9 @@ namespace backend.Migrations
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    SubCategoryId = table.Column<long>(type: "bigint", nullable: false)
+                    SubCategoryId = table.Column<long>(type: "bigint", nullable: false),
+                    Rating = table.Column<float>(type: "real", nullable: false),
+                    TotalRatings = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
                 {

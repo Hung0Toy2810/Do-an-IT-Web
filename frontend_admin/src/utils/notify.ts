@@ -1,27 +1,32 @@
-// ==================== utils/notify.ts ====================
-import { Notification} from '../types';
+// utils/notify.ts
+import type { NotificationType } from '../types';
 
-let notificationCallbacks: ((notification: Notification) => void)[] = [];
-let notificationId = 0;
+type NotifyCallback = (type: NotificationType, message: string) => void;
 
-export const notify = {
-  success: (message: string) => {
-    const id = ++notificationId;
-    notificationCallbacks.forEach(cb => cb({ id, type: 'success', message }));
-  },
-  error: (message: string) => {
-    const id = ++notificationId;
-    notificationCallbacks.forEach(cb => cb({ id, type: 'error', message }));
-  },
-  warning: (message: string) => {
-    const id = ++notificationId;
-    notificationCallbacks.forEach(cb => cb({ id, type: 'warning', message }));
+interface WindowWithNotify extends Window {
+  __globalNotify?: NotifyCallback;
+  __notifyQueue?: Array<{ type: NotificationType; message: string }>;
+}
+
+declare const window: WindowWithNotify;
+
+// Hàm gọi nội bộ
+const _notify = (type: NotificationType, message: string) => {
+  if (window.__globalNotify) {
+    window.__globalNotify(type, message);
+    return;
   }
+
+  if (!window.__notifyQueue) {
+    window.__notifyQueue = [];
+  }
+  window.__notifyQueue.push({ type, message });
 };
 
-export const registerNotificationCallback = (callback: (notification: Notification) => void) => {
-  notificationCallbacks.push(callback);
-  return () => {
-    notificationCallbacks = notificationCallbacks.filter(cb => cb !== callback);
-  };
+// === EXPORT OBJECT notify ===
+export const notify = {
+  success: (message: string) => _notify('success', message),
+  error: (message: string) => _notify('error', message),
+  warning: (message: string) => _notify('warning', message),
+  info: (message: string) => _notify('info', message),
 };

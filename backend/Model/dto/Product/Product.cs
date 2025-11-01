@@ -1,3 +1,4 @@
+using Backend.Model.Nosql;
 namespace Backend.Model.dto.Product
 {
     public class CreateProductDto
@@ -46,6 +47,9 @@ namespace Backend.Model.dto.Product
         public decimal MinDiscountedPrice { get; set; }
         public decimal OriginalPriceOfMinVariant { get; set; }
         public bool IsDiscontinued { get; set; }
+
+        public float Rating { get; set; } // Thêm rating
+        public long TotalRatings { get; set; } // Thêm totalRatings
     }
 
     public class VariantInfoDto
@@ -55,6 +59,24 @@ namespace Backend.Model.dto.Product
         public string ProductName { get; set; } = string.Empty;
         public string? FirstImage { get; set; }
         public Dictionary<string, string> Attributes { get; set; } = new();
+        public decimal OriginalPrice { get; set; }
+        public decimal DiscountedPrice { get; set; }
+        public float Rating { get; set; } // Thêm rating
+        public long TotalRatings { get; set; } // Thêm totalRatings
+    }
+
+    public class ProductDetailDto
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Slug { get; set; } = string.Empty;
+        public string Brand { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public bool IsDiscontinued { get; set; }
+        public List<ProductVariant> Variants { get; set; } = new();
+        public Dictionary<string, List<string>> AttributeOptions { get; set; } = new();
+        public float Rating { get; set; } // Thêm rating
+        public long TotalRatings { get; set; } // Thêm totalRatings
     }
     public class ProductSearchRequestDto
     {
@@ -125,5 +147,15 @@ namespace Backend.Model.dto.Product
         public int Quantity { get; set; }
         public string OrderId { get; set; } = string.Empty;
         public int ExpirationMinutes { get; set; } = 15;
+    }
+
+    public class UpdateVariantPriceRequestDto
+    {
+        public decimal OriginalPrice { get; set; }
+        public decimal DiscountedPrice { get; set; }
+    }
+    public class UpdateIsDiscontinuedRequestDto
+    {
+        public bool IsDiscontinued { get; set; }
     }
 }

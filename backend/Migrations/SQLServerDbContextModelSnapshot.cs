@@ -322,7 +322,13 @@ namespace backend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<float>("Rating")
+                        .HasColumnType("real");
+
                     b.Property<long>("SubCategoryId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("TotalRatings")
                         .HasColumnType("bigint");
 
                     b.HasKey("Id");
