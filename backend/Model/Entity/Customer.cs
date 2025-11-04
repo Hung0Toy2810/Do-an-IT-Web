@@ -31,5 +31,7 @@ namespace Backend.Model.Entity
         public virtual ICollection<Cart> Carts { get; set; } = new List<Cart>();
         public virtual ICollection<Invoice> Invoices { get; set; } = new List<Invoice>();
         public virtual ICollection<RecentlyView> RecentlyViews { get; set; } = new List<RecentlyView>();
+        // comment navigation property
+        public virtual ICollection<Comment> Comments { get; set; } = new List<Comment>();
     }
 }

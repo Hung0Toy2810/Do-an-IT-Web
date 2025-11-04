@@ -21,5 +21,6 @@ namespace Backend.Model.Entity
         public virtual ICollection<RecentlyView> RecentlyViews { get; set; } = new List<RecentlyView>();
         public virtual ICollection<ProductDailyStat> ProductDailyStats { get; set; } = new List<ProductDailyStat>();
         public virtual ICollection<Cart> Carts { get; set; } = new List<Cart>();
+        public virtual ICollection<Comment> Comments { get; set; } = new List<Comment>();
     }
 }

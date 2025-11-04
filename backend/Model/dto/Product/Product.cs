@@ -158,4 +158,12 @@ namespace Backend.Model.dto.Product
     {
         public bool IsDiscontinued { get; set; }
     }
+    public class ProductSearchAllRequestDto
+    {
+        public string? Keyword { get; set; }
+        public string? Brand { get; set; }
+        public decimal? MinPrice { get; set; }
+        public decimal? MaxPrice { get; set; }
+        public bool? SortByPriceAscending { get; set; }
+    }
 }

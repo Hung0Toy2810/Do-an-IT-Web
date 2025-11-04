@@ -25,6 +25,13 @@ namespace Backend.Repository.Product
             decimal? maxPrice,
             bool? inStock,
             bool? onSale);
+        // Trong IProductSearchRepository
+        Task<List<long>> SearchAllProductIdsByKeywordAsync(string keyword);
+        Task<List<ProductDocument>> SearchAllProductsWithFiltersAsync(
+            List<long> productIds,
+            string? brand,
+            decimal? minPrice,
+            decimal? maxPrice);
     }
 
     public class ProductSearchRepository : IProductSearchRepository
@@ -190,8 +197,64 @@ namespace Backend.Repository.Product
             if (onSale.HasValue && onSale.Value)
             {
                 filters.Add(
-                    filterBuilder.ElemMatch(x => x.Variants, 
+                    filterBuilder.ElemMatch(x => x.Variants,
                         variant => variant.DiscountedPrice < variant.OriginalPrice)
+                );
+            }
+
+            var finalFilter = filterBuilder.And(filters);
+            return await _collection.Find(finalFilter).ToListAsync();
+        }
+        
+        // Trong ProductSearchRepository.cs
+
+        public async Task<List<long>> SearchAllProductIdsByKeywordAsync(string keyword)
+        {
+            if (string.IsNullOrWhiteSpace(keyword))
+                return new List<long>();
+
+            var normalizedKeyword = keyword.Trim();
+
+            // Không lọc IsDiscontinued
+            var filter = Builders<ProductDocument>.Filter.Text(normalizedKeyword);
+
+            var productIds = await _collection
+                .Find(filter)
+                .Project(x => x.Id)
+                .Limit(1000)
+                .ToListAsync();
+
+            return productIds;
+        }
+
+        public async Task<List<ProductDocument>> SearchAllProductsWithFiltersAsync(
+            List<long> productIds,
+            string? brand,
+            decimal? minPrice,
+            decimal? maxPrice)
+        {
+            if (productIds == null || productIds.Count == 0)
+                return new List<ProductDocument>();
+
+            var filterBuilder = Builders<ProductDocument>.Filter;
+            var filters = new List<FilterDefinition<ProductDocument>>
+            {
+                filterBuilder.In(x => x.Id, productIds)
+                // Không có: Eq(x => x.IsDiscontinued, false)
+            };
+
+            if (!string.IsNullOrWhiteSpace(brand))
+            {
+                filters.Add(filterBuilder.Eq(x => x.Brand, brand));
+            }
+
+            if (minPrice.HasValue || maxPrice.HasValue)
+            {
+                filters.Add(
+                    filterBuilder.ElemMatch(x => x.Variants, variant =>
+                        (!minPrice.HasValue || variant.DiscountedPrice >= minPrice.Value) &&
+                        (!maxPrice.HasValue || variant.DiscountedPrice <= maxPrice.Value)
+                    )
                 );
             }
 

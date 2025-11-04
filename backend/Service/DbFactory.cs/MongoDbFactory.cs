@@ -31,7 +31,6 @@ namespace Backend.Service.DbFactory
             if (string.IsNullOrWhiteSpace(_databaseName))
                 throw new InvalidOperationException("Tên cơ sở dữ liệu MongoDB chưa được cấu hình hoặc bị bỏ trống.");
         }
-
         public MongoDbContext CreateContext()
         {
             var client = new MongoClient(_connectionString);

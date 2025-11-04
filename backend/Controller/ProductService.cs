@@ -191,5 +191,15 @@ namespace Backend.Controllers
                 Message = "Cập nhật trạng thái ngừng kinh doanh thành công"
             });
         }
+        [HttpGet("search-all")]
+        public async Task<IActionResult> SearchAllProducts([FromQuery] ProductSearchAllRequestDto request)
+        {
+            var result = await _productService.SearchAllProductsAsync(request);
+            return Ok(new
+            {
+                Message = "Tìm kiếm tất cả sản phẩm (kể cả ngừng kinh doanh) thành công",
+                Data = result
+            });
+        }
     }
 }

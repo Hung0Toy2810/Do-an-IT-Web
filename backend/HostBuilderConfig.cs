@@ -20,6 +20,8 @@ using Backend.Service.Product;
 using Backend.Repository.Product;
 using Backend.Service.Inventory;
 using Backend.Repository;
+using Backend.Repository.CommentRepository;
+using Backend.Service.CommentService;
 
 namespace Backend 
 {
@@ -151,6 +153,8 @@ namespace Backend
                     services.AddScoped<IProductService, ProductService>();
                     services.AddScoped<IInventoryService, InventoryService>();
                     services.AddScoped<IShipmentBatchRepository, ShipmentBatchRepository>();
+                    services.AddScoped<ICommentRepository, CommentRepository>();
+                    services.AddScoped<ICommentService, CommentService>();
 
                 })
                 .ConfigureWebHostDefaults(webBuilder =>

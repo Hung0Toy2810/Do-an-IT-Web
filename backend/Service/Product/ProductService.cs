@@ -4,6 +4,8 @@ using Backend.Model.Entity;
 using Backend.SQLDbContext;
 using Microsoft.EntityFrameworkCore;
 using Backend.Repository.Product;
+using Microsoft.Extensions.Logging.Abstractions;
+
 
 namespace Backend.Service.Product
 {
@@ -25,6 +27,7 @@ namespace Backend.Service.Product
         Task<bool> UpdateVariantPriceAsync(string productSlug, string variantSlug, decimal originalPrice, decimal discountedPrice);
         Task<BulkOperationResultDto> BulkUpdatePricesAsync(List<BulkPriceUpdateDto> updates);
         Task<bool> UpdateIsDiscontinuedAsync(string productSlug, bool isDiscontinued);
+        Task<ProductSearchResultDto> SearchAllProductsAsync(ProductSearchAllRequestDto request);
     }
 
     public class ProductService : IProductService
@@ -33,17 +36,23 @@ namespace Backend.Service.Product
         private readonly IProductDocumentService _productDocumentService;
         private readonly IProductRepository _productRepository;
         private readonly IProductSearchService _productSearchService;
+        // logger
+        private readonly ILogger<ProductService> _logger;
 
         public ProductService(
             SQLServerDbContext dbContext,
             IProductDocumentService productDocumentService,
             IProductRepository productRepository,
+            ILogger<ProductService>? logger,
             IProductSearchService productSearchService)
+            
+
         {
             _dbContext = dbContext;
             _productDocumentService = productDocumentService;
             _productRepository = productRepository;
             _productSearchService = productSearchService;
+            _logger = logger ?? NullLogger<ProductService>.Instance;
         }
 
         public async Task<ProductDetailDto> CreateProductAsync(CreateProductDto dto)
@@ -587,6 +596,110 @@ namespace Backend.Service.Product
         {
             // Chuyển tiếp tới ProductDocumentService
             return await _productDocumentService.UpdateIsDiscontinuedAsync(productSlug, isDiscontinued);
+        }
+        // Trong ProductService.cs - Thêm using Microsoft.Extensions.Logging; nếu cần ILogger
+        public async Task<ProductSearchResultDto> SearchAllProductsAsync(ProductSearchAllRequestDto request)
+        {
+            var logger = _logger ?? NullLogger<ProductService>.Instance;
+
+            var rawKeyword = request.Keyword?.Trim();
+            logger.LogInformation($"[DEBUG] Raw keyword: '{rawKeyword}'");
+
+            if (string.IsNullOrWhiteSpace(rawKeyword))
+            {
+                var everyProductIds = await _productRepository.GetAllProductIdsAsync();
+                logger.LogInformation($"[DEBUG] No keyword: everyProductIds count = {everyProductIds.Count}");
+                return await FilterAndSortAsync(everyProductIds, request);
+            }
+
+            var words = rawKeyword.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                                .Select(w => w.ToLower())
+                                .ToList();
+            logger.LogInformation($"[DEBUG] Words from keyword: [{string.Join(", ", words)}]");
+
+            // --- SQL: subcategory slug ---
+            var sqlProductIds = new List<long>();
+            foreach (var word in words)
+            {
+                var subCatId = await _productRepository.GetSubCategoryIdBySlugAsync(word);
+                logger.LogInformation($"[DEBUG] Word '{word}': subCatId = {subCatId?.ToString() ?? "NULL"}");
+                if (subCatId.HasValue)
+                {
+                    var ids = await _productRepository.GetProductIdsBySubCategorySlugAsync(word);
+                    logger.LogInformation($"[DEBUG] Word '{word}': found {ids.Count} product IDs");
+                    sqlProductIds.AddRange(ids);
+                }
+            }
+            sqlProductIds = sqlProductIds.Distinct().ToList();
+            logger.LogInformation($"[DEBUG] Final sqlProductIds count = {sqlProductIds.Count}");
+
+            // --- MongoDB: text search ---
+            var mongoProductIds = await _productSearchService.SearchAllProductIdsByKeywordAsync(rawKeyword);
+            logger.LogInformation($"[DEBUG] mongoProductIds count = {mongoProductIds.Count}");
+
+            // --- UNION (THAY ĐỔI CHÍNH) ---
+            var finalProductIds = new HashSet<long>(sqlProductIds);
+            finalProductIds.UnionWith(mongoProductIds);
+            var allProductIdsList = finalProductIds.ToList();
+            logger.LogInformation($"[DEBUG] Final productIds after UNION count = {allProductIdsList.Count}");
+
+            return await FilterAndSortAsync(allProductIdsList, request);
+        }
+
+        // ================================================================
+        // 2. Helper method: FilterAndSortAsync (đã đổi tên tham số)
+        // ================================================================
+        private async Task<ProductSearchResultDto> FilterAndSortAsync(
+            IReadOnlyCollection<long> productIds,          // ← ĐÃ ĐỔI TÊN
+            ProductSearchAllRequestDto request)
+        {
+            if (!productIds.Any())
+            {
+                return new ProductSearchResultDto
+                {
+                    ProductIds = new List<long>(),
+                    TotalCount = 0
+                };
+            }
+
+            var products = await _productSearchService.SearchAllProductsWithFiltersAsync(
+                productIds.ToList(),
+                request.Brand,
+                request.MinPrice,
+                request.MaxPrice);
+
+            if (!products.Any())
+            {
+                return new ProductSearchResultDto
+                {
+                    ProductIds = new List<long>(),
+                    TotalCount = 0
+                };
+            }
+
+            var productsWithMinPrice = products
+                .Select(p => new ProductWithMinPrice
+                {
+                    ProductId = p.Id,
+                    MinPrice = p.Variants.Any()
+                        ? p.Variants.Min(v => v.DiscountedPrice)
+                        : decimal.MaxValue
+                })
+                .ToList();
+
+            IEnumerable<long> sortedIds = request.SortByPriceAscending.HasValue
+                ? request.SortByPriceAscending.Value
+                    ? productsWithMinPrice.OrderBy(p => p.MinPrice).Select(p => p.ProductId)
+                    : productsWithMinPrice.OrderByDescending(p => p.MinPrice).Select(p => p.ProductId)
+                : productsWithMinPrice.Select(p => p.ProductId);
+
+            var resultIds = sortedIds.ToList();
+
+            return new ProductSearchResultDto
+            {
+                ProductIds = resultIds,
+                TotalCount = resultIds.Count
+            };
         }
     }
 }

@@ -24,6 +24,13 @@ namespace Backend.Service.Product
             decimal? maxPrice,
             bool? inStock,
             bool? onSale);
+        // Trong IProductSearchService
+        Task<List<long>> SearchAllProductIdsByKeywordAsync(string keyword);
+        Task<List<ProductDocument>> SearchAllProductsWithFiltersAsync(
+            List<long> productIds,
+            string? brand,
+            decimal? minPrice,
+            decimal? maxPrice);
     }
 
     public class ProductSearchService : IProductSearchService
@@ -73,6 +80,22 @@ namespace Backend.Service.Product
         {
             return await _repository.GetProductsWithAdvancedFiltersAsync(
                 productIds, brands, minPrice, maxPrice, inStock, onSale);
+        }
+
+        // Trong ProductSearchService.cs
+
+        public async Task<List<long>> SearchAllProductIdsByKeywordAsync(string keyword)
+        {
+            return await _repository.SearchAllProductIdsByKeywordAsync(keyword);
+        }
+
+        public async Task<List<ProductDocument>> SearchAllProductsWithFiltersAsync(
+            List<long> productIds,
+            string? brand,
+            decimal? minPrice,
+            decimal? maxPrice)
+        {
+            return await _repository.SearchAllProductsWithFiltersAsync(productIds, brand, minPrice, maxPrice);
         }
     }
 }

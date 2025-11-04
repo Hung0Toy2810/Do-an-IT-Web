@@ -30,6 +30,7 @@ namespace Backend.SQLDbContext
         public DbSet<ShipmentBatch> ShipmentBatches { get; set; }
         // VNPayPayment
         public DbSet<VNPayPayment> VNPayPayments { get; set; }
+        public DbSet<Comment> Comments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -321,7 +322,24 @@ namespace Backend.SQLDbContext
                 entity.HasIndex(e => e.ProductId)
                     .HasDatabaseName("IX_ShipmentBatch_ProductId");
             });
+            modelBuilder.Entity<Comment>(entity =>
+            {
+                entity.HasOne(e => e.Customer)
+                    .WithMany(e => e.Comments)
+                    .HasForeignKey(e => e.CustomerId)
+                    .OnDelete(DeleteBehavior.Cascade);
 
+                entity.HasOne(e => e.Product)
+                    .WithMany(e => e.Comments)
+                    .HasForeignKey(e => e.ProductId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => e.CreatedAt)
+                    .HasDatabaseName("IX_Comment_CreatedAt");
+
+                entity.HasIndex(e => e.Rating)
+                    .HasDatabaseName("IX_Comment_Rating");
+            });
         }
     }
 }
