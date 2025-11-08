@@ -123,20 +123,27 @@ namespace Backend.Service.Product
 
         public async Task<ProductSearchResultDto> SearchProductsAsync(ProductSearchRequestDto request)
         {
-            var sqlProductIds = await _productRepository
-                .SearchProductIdsBySubCategoryAsync(request.Keyword);
+            // === B1: Tìm từ SQL (subcategory) ===
+            var sqlProductIds = await _productRepository.SearchProductIdsBySubCategoryAsync(request.Keyword);
 
-            // 🔄 ĐỔI: _productDocumentService → _productSearchService
-            var mongoProductIds = await _productSearchService
-                .SearchProductIdsByKeywordAsync(request.Keyword);
+            // === B2: Tìm từ MongoDB (full-text) ===
+            var mongoProductIds = await _productSearchService.SearchProductIdsByKeywordAsync(request.Keyword);
 
+            // === B3: Gộp ID ===
             var allProductIds = sqlProductIds
                 .Union(mongoProductIds)
                 .Distinct()
                 .ToList();
 
+            // === DEBUG: Log để kiểm tra ===
+            Console.WriteLine($"[SEARCH DEBUG] Keyword: '{request.Keyword}'");
+            Console.WriteLine($"[SEARCH DEBUG] SQL IDs: [{string.Join(", ", sqlProductIds)}]");
+            Console.WriteLine($"[SEARCH DEBUG] Mongo IDs: [{string.Join(", ", mongoProductIds)}]");
+            Console.WriteLine($"[SEARCH DEBUG] Union IDs: [{string.Join(", ", allProductIds)}]");
+
             if (allProductIds.Count == 0)
             {
+                Console.WriteLine("[SEARCH DEBUG] No IDs found → return empty");
                 return new ProductSearchResultDto
                 {
                     ProductIds = new List<long>(),
@@ -144,12 +151,18 @@ namespace Backend.Service.Product
                 };
             }
 
-            // 🔄 ĐỔI: _productDocumentService → _productSearchService
-            var products = await _productSearchService
-                .SearchProductsWithFiltersAsync(allProductIds, request.MinPrice, request.MaxPrice);
+            // === B4: Lấy sản phẩm từ MongoDB (chỉ những ID có tồn tại) ===
+            var products = await _productSearchService.SearchProductsWithFiltersAsync(
+                allProductIds,
+                request.MinPrice,
+                request.MaxPrice
+            );
+
+            Console.WriteLine($"[SEARCH DEBUG] After filter → Found {products.Count} products in MongoDB");
 
             if (products.Count == 0)
             {
+                Console.WriteLine("[SEARCH DEBUG] No products in MongoDB → return empty");
                 return new ProductSearchResultDto
                 {
                     ProductIds = new List<long>(),
@@ -157,38 +170,46 @@ namespace Backend.Service.Product
                 };
             }
 
+            // === B5: Tính giá nhỏ nhất ===
             var productsWithMinPrice = products
-                .Select(p => new ProductWithMinPrice
+                .Select(p => new
                 {
-                    ProductId = p.Id,
-                    MinPrice = p.Variants.Any() 
-                        ? p.Variants.Min(v => v.DiscountedPrice) 
+                    p.Id,
+                    MinPrice = p.Variants.Any()
+                        ? p.Variants.Min(v => v.DiscountedPrice)
                         : decimal.MaxValue
                 })
                 .ToList();
 
+            // === B6: Sắp xếp ===
             IEnumerable<long> sortedProductIds;
 
             if (request.SortByPriceAscending.HasValue)
             {
                 sortedProductIds = request.SortByPriceAscending.Value
-                    ? productsWithMinPrice.OrderBy(p => p.MinPrice).Select(p => p.ProductId)
-                    : productsWithMinPrice.OrderByDescending(p => p.MinPrice).Select(p => p.ProductId);
+                    ? productsWithMinPrice.OrderBy(x => x.MinPrice).Select(x => x.Id)
+                    : productsWithMinPrice.OrderByDescending(x => x.MinPrice).Select(x => x.Id);
             }
             else
             {
-                sortedProductIds = SortByRelevanceWithPriceMix(productsWithMinPrice);
+                // Ưu tiên: SQL trước → MongoDB sau
+                var sqlSet = sqlProductIds.ToHashSet();
+                sortedProductIds = products
+                    .OrderBy(p => sqlSet.Contains(p.Id) ? 0 : 1)
+                    .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                    .Select(p => p.Id);
             }
 
-            var sortedList = sortedProductIds.ToList();
+            var resultIds = sortedProductIds.ToList();
+
+            Console.WriteLine($"[SEARCH DEBUG] Final ProductIds: [{string.Join(", ", resultIds)}]");
 
             return new ProductSearchResultDto
             {
-                ProductIds = sortedList,
-                TotalCount = sortedList.Count
+                ProductIds = resultIds,
+                TotalCount = resultIds.Count
             };
         }
-
         public async Task<SubCategoryProductResultDto> GetProductsBySubCategoryAsync(SubCategoryProductRequestDto request)
         {
             var subCategoryId = await _productRepository.GetSubCategoryIdBySlugAsync(request.SubCategorySlug);

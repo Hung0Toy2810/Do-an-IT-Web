@@ -25,6 +25,6 @@ namespace Backend.Model.Entity
         public int Quantity { get; set; }
 
         [Required, MaxLength(100)]
-        public string Option { get; set; } = string.Empty;
+        public string VariantSlug { get; set; } = string.Empty;
     }
 }

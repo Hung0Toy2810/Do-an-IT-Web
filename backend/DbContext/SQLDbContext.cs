@@ -156,7 +156,7 @@ namespace Backend.SQLDbContext
                     .OnDelete(DeleteBehavior.Restrict);
 
                 // Index composite cho CustomerId và ProductId để tối ưu truy vấn giỏ hàng, và ràng buộc unique để tránh duplicate item trong cart
-                entity.HasIndex(e => new { e.CustomerId, e.ProductId, e.Option })
+                entity.HasIndex(e => new { e.CustomerId, e.ProductId, e.VariantSlug })
                     .IsUnique()
                     .HasDatabaseName("IX_Cart_CustomerId_ProductId_Option");
 
@@ -164,7 +164,7 @@ namespace Backend.SQLDbContext
                 entity.ToTable(tb => tb.HasCheckConstraint("CK_Cart_Quantity_Positive", "[Quantity] > 0"));
 
                 // Index cho Option nếu truy vấn theo option (ví dụ: size, color)
-                entity.HasIndex(e => e.Option)
+                entity.HasIndex(e => e.VariantSlug)
                     .HasDatabaseName("IX_Cart_Option");
             });
 

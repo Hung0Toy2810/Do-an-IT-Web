@@ -1,5 +1,8 @@
 using Backend.Model.Entity;
+using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Backend.Repository.CommentRepository
@@ -11,23 +14,23 @@ namespace Backend.Repository.CommentRepository
         Task<List<Comment>> GetByProductIdAsync(long productId);
         Task UpdateAsync(Comment comment);
         Task DeleteAsync(int id);
-                // Trong ICommentRepository
         Task<List<Comment>> GetNextCommentsAsync(long productId, int? lastCommentId, int pageSize);
         Task<List<Comment>> GetCustomerCommentsForProductAsync(Guid customerId, long productId);
     }
+
     public class CommentRepository : ICommentRepository
     {
         private readonly SQLServerDbContext _context;
 
         public CommentRepository(SQLServerDbContext context)
         {
-            _context = context;
+            _context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
         public async Task CreateAsync(Comment comment)
         {
             await _context.Comments.AddAsync(comment);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(); // ĐÚNG
         }
 
         public async Task<Comment?> GetByIdAsync(int id)
@@ -39,8 +42,8 @@ namespace Backend.Repository.CommentRepository
 
         public async Task<List<Comment>> GetByProductIdAsync(long productId)
         {
-            // Không cần .Include() nữa!
             return await _context.Comments
+                .Include(c => c.Customer)
                 .Where(c => c.ProductId == productId)
                 .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync();
@@ -49,7 +52,7 @@ namespace Backend.Repository.CommentRepository
         public async Task UpdateAsync(Comment comment)
         {
             _context.Comments.Update(comment);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(); // ĐÃ SỬA: SaveChangesAsync
         }
 
         public async Task DeleteAsync(int id)
@@ -58,11 +61,10 @@ namespace Backend.Repository.CommentRepository
             if (comment != null)
             {
                 _context.Comments.Remove(comment);
-                await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync(); // ĐÚNG
             }
         }
 
-        // Trong CommentRepository.cs
         public async Task<List<Comment>> GetNextCommentsAsync(long productId, int? lastCommentId, int pageSize)
         {
             var query = _context.Comments

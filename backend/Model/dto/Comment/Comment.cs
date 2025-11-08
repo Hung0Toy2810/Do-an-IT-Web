@@ -18,6 +18,7 @@ namespace backend.Model.dto.Comment
         public int Rating { get; set; }
         public DateTime CreatedAt { get; set; }
         public string CustomerName { get; set; } = "Ẩn danh";
+        public string AvatarUrl { get; set; } = string.Empty;
     }
 
     public class GetCommentsRequest

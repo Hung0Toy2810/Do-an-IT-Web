@@ -3,7 +3,6 @@ using Backend.Service.CommentService;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace Backend.Controllers
 {
@@ -21,8 +20,10 @@ namespace Backend.Controllers
 
         private Guid GetCustomerId()
         {
-            return Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-                ?? throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng"));
+            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(claim) || !Guid.TryParse(claim, out var id))
+                throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng.");
+            return id;
         }
 
         // POST: api/comments
@@ -42,8 +43,15 @@ namespace Backend.Controllers
             [FromQuery] int? lastCommentId,
             [FromQuery] int pageSize = 5)
         {
-            var comments = await _commentService.GetNextCommentsAsync(productId, lastCommentId, pageSize);
+            if (pageSize < 1 || pageSize > 20) pageSize = 5;
+
+            var comments = lastCommentId.HasValue
+                ? await _commentService.GetNextCommentsAsync(productId, lastCommentId, pageSize)
+                : await _commentService.GetByProductIdAsync(productId);
+
             var hasMore = comments.Count == pageSize;
+            var nextLastCommentId = comments.Any() ? comments.Min(c => c.Id) : (int?)null;
+
             return Ok(new
             {
                 Message = "Lấy danh sách bình luận thành công",
@@ -51,7 +59,7 @@ namespace Backend.Controllers
                 {
                     Comments = comments,
                     HasMore = hasMore,
-                    NextLastCommentId = comments.Any() ? comments.Min(c => c.Id) : (int?)null
+                    NextLastCommentId = nextLastCommentId
                 }
             });
         }

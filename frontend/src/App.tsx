@@ -1,22 +1,41 @@
+// src/App.tsx
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import NotificationProvider from './components/NotificationProvider';
+import MainLayout from './layouts/MainLayout';
+
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import { BrowserRouter, Routes, Route } from 'react-router-dom'; 
 import ChangePasswordPage from './pages/ChangePasswordPage';
+import ProductDetail from './pages/ProductDetail';
+import SearchPage from './pages/SearchPage';
+import JoinEmailList from './pages/JoinEmailList';
+import ThanksPage from './pages/ThanksPage';
+import SubCategoryPage from './pages/SubCategoryPage';
+
 export default function App() {
   return (
     <BrowserRouter>
       <NotificationProvider>
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          {/* Các trang dùng chung Header + Footer */}
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/product/:slug" element={<ProductDetail />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/subcategory/:slug" element={<SubCategoryPage />} />
+          </Route>
+
+          {/* Trang riêng (không có Header/Footer) */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/FogotPassword" element={<ForgotPasswordPage />} />
           <Route path="/change-password" element={<ChangePasswordPage />} />
+          <Route path="/join" element={<JoinEmailList />} />
+          <Route path="/thanks" element={<ThanksPage />} />
         </Routes>
       </NotificationProvider>
     </BrowserRouter>

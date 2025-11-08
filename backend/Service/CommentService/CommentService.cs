@@ -14,7 +14,7 @@ namespace Backend.Service.CommentService
     {
         Task CreateAsync(Guid customerId, CreateCommentDto dto);
         Task UpdateAsync(int id, Guid customerId, UpdateCommentDto dto);
-        Task DeleteAsync(int id, Guid customerId); // ĐÃ SỬA: bỏ UpdateCommentDto
+        Task DeleteAsync(int id, Guid customerId);
         Task<List<CommentDto>> GetByProductIdAsync(long productId);
         Task<List<CommentDto>> GetNextCommentsAsync(long productId, int? lastCommentId, int pageSize);
         Task<List<CommentDto>> GetMyCommentsForProductAsync(Guid customerId, long productId);
@@ -42,7 +42,7 @@ namespace Backend.Service.CommentService
 
             var comment = new Comment
             {
-                Content = dto.Content,
+                Content = dto.Content.Trim(),
                 Rating = dto.Rating,
                 CreatedAt = DateTime.UtcNow,
                 CustomerId = customerId,
@@ -79,7 +79,7 @@ namespace Backend.Service.CommentService
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                comment.Content = dto.Content;
+                comment.Content = dto.Content.Trim();
                 comment.Rating = dto.Rating;
                 await _repo.UpdateAsync(comment);
                 await RecalculateProductRatingAsync(comment.ProductId);
@@ -137,7 +137,7 @@ namespace Backend.Service.CommentService
         // === TÍNH LẠI RATING SẢN PHẨM ===
         private async Task RecalculateProductRatingAsync(long productId)
         {
-            var comments = await _context.Comments
+            var ratings = await _context.Comments
                 .Where(c => c.ProductId == productId)
                 .Select(c => c.Rating)
                 .ToListAsync();
@@ -145,10 +145,10 @@ namespace Backend.Service.CommentService
             var product = await _context.Products.FindAsync(productId);
             if (product == null) return;
 
-            if (comments.Any())
+            if (ratings.Any())
             {
-                product.TotalRatings = comments.Count;
-                product.Rating = (float)Math.Round(comments.Average(), 2);
+                product.TotalRatings = ratings.Count;
+                product.Rating = (float)Math.Round(ratings.Average(), 2);
             }
             else
             {
@@ -160,7 +160,7 @@ namespace Backend.Service.CommentService
             await _context.SaveChangesAsync();
         }
 
-        // === CHUYỂN ENTITY → DTO ===
+        // === CHUYỂN ENTITY → DTO (CÓ TÊN + ẢNH) ===
         private CommentDto MapToDto(Comment comment)
         {
             return new CommentDto
@@ -169,7 +169,10 @@ namespace Backend.Service.CommentService
                 Content = comment.Content,
                 Rating = comment.Rating,
                 CreatedAt = comment.CreatedAt,
-                CustomerName = comment.Customer?.CustomerName ?? "Ẩn danh"
+                CustomerName = comment.Customer?.CustomerName ?? "Ẩn danh",
+                AvatarUrl = string.IsNullOrWhiteSpace(comment.Customer?.AvtURL)
+                    ? "https://ui-avatars.com/api/?name=" + Uri.EscapeDataString(comment.Customer?.CustomerName ?? "User") + "&background=random"
+                    : comment.Customer.AvtURL
             };
         }
     }

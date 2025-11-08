@@ -22,8 +22,12 @@ namespace Backend.Middleware
     {
         public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration config)
         {
-            var jwtKey = config["Jwt:SecretKey"] ?? config["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:SecretKey or Jwt:Key must be configured.");
-            if (jwtKey.Length < 32) throw new InvalidOperationException("Jwt key must be at least 32 characters.");
+            var jwtKey = config["Jwt:SecretKey"] ?? config["Jwt:Key"] 
+                         ?? throw new InvalidOperationException("Cấu hình Jwt:SecretKey hoặc Jwt:Key bị thiếu.");
+
+            if (jwtKey.Length < 32) 
+                throw new InvalidOperationException("Khóa JWT phải có ít nhất 32 ký tự.");
+
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
 
             services
@@ -55,18 +59,16 @@ namespace Backend.Middleware
                             var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<JwtBearerEvents>>();
                             logger.LogDebug("OnTokenValidated triggered for request {Path}", context.Request.Path);
 
-                            // Lấy JTI từ Principal (đã được validate và chuẩn hóa)
                             var jti = context.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
 
                             if (string.IsNullOrEmpty(jti))
                             {
-                                logger.LogWarning("Token is missing JTI claim");
-                                
-                                // Log tất cả claims để debug
+                                logger.LogWarning("Token thiếu claim JTI");
+
                                 var allClaims = context.Principal?.Claims?.Select(c => $"{c.Type}={c.Value}") ?? Enumerable.Empty<string>();
-                                logger.LogWarning("Available claims: {Claims}", string.Join(", ", allClaims));
-                                
-                                throw new AuthenticationException("Token is missing JTI claim.");
+                                logger.LogWarning("Các claim hiện có: {Claims}", string.Join(", ", allClaims));
+
+                                throw new AuthenticationException("Token không chứa mã JTI.");
                             }
 
                             logger.LogDebug("Found JTI: {Jti}", jti);
@@ -75,101 +77,95 @@ namespace Backend.Middleware
                             {
                                 var redis = context.HttpContext.RequestServices.GetRequiredService<IConnectionMultiplexer>();
                                 var db = redis.GetDatabase();
-                                
-                                // Kiểm tra xem token có bị revoke không
+
                                 var isRevoked = await db.StringGetAsync($"revoked:{jti}");
                                 logger.LogDebug("Checked revoked:{Jti}, result: {Result}", jti, isRevoked.HasValue ? isRevoked.ToString() : "null");
 
                                 if (isRevoked.HasValue && isRevoked == "true")
                                 {
-                                    logger.LogWarning("Token with JTI {Jti} was rejected because it was revoked.", jti);
-                                    throw new AuthenticationException("Token has been revoked. Please login again.");
+                                    logger.LogWarning("Token với JTI {Jti} đã bị thu hồi.", jti);
+                                    throw new AuthenticationException("Token đã bị thu hồi. Vui lòng đăng nhập lại.");
                                 }
 
-                                // Lấy userId từ claims
                                 var userId = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                                 if (!string.IsNullOrEmpty(userId))
                                 {
-                                    // Kiểm tra session có tồn tại không
                                     var sessionKey = $"session:{userId}:{jti}";
                                     var sessionExists = await db.KeyExistsAsync(sessionKey);
-                                    
+
                                     if (!sessionExists)
                                     {
-                                        logger.LogWarning("Session not found for JTI {Jti} and UserId {UserId}", jti, userId);
-                                        throw new AuthenticationException("Invalid or expired session. Please login again.");
+                                        logger.LogWarning("Không tìm thấy session cho JTI {Jti}, UserId {UserId}", jti, userId);
+                                        throw new AuthenticationException("Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.");
                                     }
 
-                                    logger.LogDebug("Valid session found for JTI {Jti} and UserId {UserId}", jti, userId);
+                                    logger.LogDebug("Session hợp lệ cho JTI {Jti}, UserId {UserId}", jti, userId);
                                 }
 
-                                // Kiểm tra role claims có hợp lệ không
                                 var roleClaims = context.Principal?.FindAll(ClaimTypes.Role);
                                 if (roleClaims == null || !roleClaims.Any())
                                 {
-                                    logger.LogWarning("Token for user {UserId} has no role claims", userId);
+                                    logger.LogWarning("Token của user {UserId} không có role claims", userId);
                                 }
                             }
                             catch (AuthenticationException)
                             {
-                                // Re-throw AuthenticationException để middleware tập trung xử lý
                                 throw;
                             }
                             catch (RedisConnectionException ex)
                             {
-                                logger.LogError(ex, "Failed to connect to Redis while checking token revocation.");
-                                throw new AuthenticationException("Authentication service is temporarily unavailable. Please try again later.");
+                                logger.LogError(ex, "Lỗi kết nối Redis khi kiểm tra token.");
+                                throw new AuthenticationException("Hệ thống xác thực tạm thời không khả dụng. Vui lòng thử lại sau.");
                             }
                             catch (Exception ex)
                             {
-                                logger.LogError(ex, "Unexpected error during token validation.");
-                                throw new AuthenticationException("Authentication failed due to an unexpected error.");
+                                logger.LogError(ex, "Lỗi không mong muốn khi xác thực token.");
+                                throw new AuthenticationException("Xác thực thất bại do lỗi không mong muốn.");
                             }
                         },
+
                         OnAuthenticationFailed = context =>
                         {
                             var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<JwtBearerEvents>>();
-                            logger.LogError(context.Exception, "Authentication failed: {Message}", context.Exception.Message);
-                            
+                            logger.LogError(context.Exception, "Xác thực thất bại: {Message}", context.Exception.Message);
                             return Task.CompletedTask;
                         },
+
                         OnChallenge = context =>
                         {
                             var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<JwtBearerEvents>>();
-                            
-                            logger.LogWarning("Authorization challenge at {Path}: {Error}", 
-                                context.Request.Path, 
-                                context.ErrorDescription ?? "No token provided");
-                            
-                            // Chặn response mặc định và throw exception để middleware xử lý
+
+                            logger.LogWarning("Challenge tại {Path}: {Error}",
+                                context.Request.Path,
+                                context.ErrorDescription ?? "Không có token");
+
                             context.HandleResponse();
-                            throw new AuthenticationException("Unauthorized. Please provide a valid authentication token.");
+                            throw new AuthenticationException("Không có quyền truy cập. Vui lòng cung cấp token hợp lệ.");
                         },
+
                         OnForbidden = context =>
                         {
                             var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<JwtBearerEvents>>();
-                            
-                            // Lấy thông tin user và role
+
                             var userId = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                             var userRoles = context.Principal?.FindAll(ClaimTypes.Role)
                                 .Select(c => c.Value)
                                 .ToList() ?? new List<string>();
-                            
+
                             var endpoint = context.HttpContext.GetEndpoint();
                             var authorizeData = endpoint?.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.IAuthorizeData>();
                             var requiredRoles = authorizeData?.Roles;
-                            
+
                             logger.LogWarning(
-                                "Authorization forbidden for user {UserId} with roles [{Roles}] accessing {Path}. Required roles: {RequiredRoles}",
-                                userId ?? "Unknown",
+                                "Cấm truy cập: user {UserId} roles [{Roles}] -> {Path}. Yêu cầu roles: {RequiredRoles}",
+                                userId ?? "Không xác định",
                                 string.Join(", ", userRoles),
                                 context.Request.Path,
-                                requiredRoles ?? "Not specified"
+                                requiredRoles ?? "Không yêu cầu"
                             );
-                            
-                            // Chặn response mặc định và throw exception để middleware xử lý
+
                             throw new UnauthorizedAccessException(
-                                $"You don't have permission to access this resource. Required roles: {requiredRoles ?? "Not specified"}. Your roles: {string.Join(", ", userRoles)}"
+                                $"Bạn không có quyền truy cập tài nguyên này. Quyền yêu cầu: {requiredRoles ?? "Không yêu cầu"}. Quyền của bạn: {string.Join(", ", userRoles)}"
                             );
                         }
                     };

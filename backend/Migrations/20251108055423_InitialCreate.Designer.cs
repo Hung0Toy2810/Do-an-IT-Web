@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace backend.Migrations
 {
     [DbContext(typeof(SQLServerDbContext))]
-    [Migration("20251027154233_InitialCreate")]
+    [Migration("20251108055423_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -72,25 +72,25 @@ namespace backend.Migrations
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Option")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<long>("ProductId")
                         .HasColumnType("bigint");
 
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
-                    b.HasKey("Id");
+                    b.Property<string>("VariantSlug")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
-                    b.HasIndex("Option")
-                        .HasDatabaseName("IX_Cart_Option");
+                    b.HasKey("Id");
 
                     b.HasIndex("ProductId");
 
-                    b.HasIndex("CustomerId", "ProductId", "Option")
+                    b.HasIndex("VariantSlug")
+                        .HasDatabaseName("IX_Cart_Option");
+
+                    b.HasIndex("CustomerId", "ProductId", "VariantSlug")
                         .IsUnique()
                         .HasDatabaseName("IX_Cart_CustomerId_ProductId_Option");
 
@@ -132,6 +132,45 @@ namespace backend.Migrations
                         .HasDatabaseName("IX_Category_Slug");
 
                     b.ToTable("Categories");
+                });
+
+            modelBuilder.Entity("Backend.Model.Entity.Comment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ProductId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("IX_Comment_CreatedAt");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("Rating")
+                        .HasDatabaseName("IX_Comment_Rating");
+
+                    b.ToTable("Comments");
                 });
 
             modelBuilder.Entity("Backend.Model.Entity.Customer", b =>
@@ -559,6 +598,25 @@ namespace backend.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("Backend.Model.Entity.Comment", b =>
+                {
+                    b.HasOne("Backend.Model.Entity.Customer", "Customer")
+                        .WithMany("Comments")
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend.Model.Entity.Product", "Product")
+                        .WithMany("Comments")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("Backend.Model.Entity.Customer", b =>
                 {
                     b.OwnsOne("Backend.Model.Entity.ShippingAddress", "StandardShippingAddress", b1 =>
@@ -809,6 +867,8 @@ namespace backend.Migrations
                 {
                     b.Navigation("Carts");
 
+                    b.Navigation("Comments");
+
                     b.Navigation("Invoices");
 
                     b.Navigation("RecentlyViews");
@@ -826,6 +886,8 @@ namespace backend.Migrations
             modelBuilder.Entity("Backend.Model.Entity.Product", b =>
                 {
                     b.Navigation("Carts");
+
+                    b.Navigation("Comments");
 
                     b.Navigation("InvoiceDetails");
 

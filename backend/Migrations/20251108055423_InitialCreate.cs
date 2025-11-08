@@ -197,7 +197,7 @@ namespace backend.Migrations
                     CustomerId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     ProductId = table.Column<long>(type: "bigint", nullable: false),
                     Quantity = table.Column<int>(type: "int", nullable: false),
-                    Option = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false)
+                    VariantSlug = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -215,6 +215,35 @@ namespace backend.Migrations
                         principalTable: "Products",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Comments",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Content = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Rating = table.Column<int>(type: "int", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CustomerId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProductId = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Comments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Comments_Customers_CustomerId",
+                        column: x => x.CustomerId,
+                        principalTable: "Customers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Comments_Products_ProductId",
+                        column: x => x.ProductId,
+                        principalTable: "Products",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -343,13 +372,13 @@ namespace backend.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_Cart_CustomerId_ProductId_Option",
                 table: "Carts",
-                columns: new[] { "CustomerId", "ProductId", "Option" },
+                columns: new[] { "CustomerId", "ProductId", "VariantSlug" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Cart_Option",
                 table: "Carts",
-                column: "Option");
+                column: "VariantSlug");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Carts_ProductId",
@@ -367,6 +396,26 @@ namespace backend.Migrations
                 table: "Categories",
                 column: "Slug",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Comment_CreatedAt",
+                table: "Comments",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Comment_Rating",
+                table: "Comments",
+                column: "Rating");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Comments_CustomerId",
+                table: "Comments",
+                column: "CustomerId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Comments_ProductId",
+                table: "Comments",
+                column: "ProductId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Customer_CustomerName",
@@ -524,6 +573,9 @@ namespace backend.Migrations
 
             migrationBuilder.DropTable(
                 name: "Carts");
+
+            migrationBuilder.DropTable(
+                name: "Comments");
 
             migrationBuilder.DropTable(
                 name: "InvoiceDetails");
