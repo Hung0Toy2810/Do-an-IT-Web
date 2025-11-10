@@ -31,6 +31,11 @@ namespace Backend.Model.Entity
         [Required]
         public ShippingAddress ShippingAddress { get; set; } = new ShippingAddress();
 
+        [MaxLength(20)]
+        public string? Carrier { get; set; } = "viettelpost";
+
+        public DateTime? EstimatedDelivery { get; set; }
+
         public virtual ICollection<InvoiceDetail> InvoiceDetails { get; set; } = new List<InvoiceDetail>();
         public virtual ICollection<InvoiceStatusHistory> StatusHistories { get; set; } = new List<InvoiceStatusHistory>();
         public virtual VNPayPayment? VNPayPayment { get; set; }

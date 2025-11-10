@@ -19,5 +19,8 @@ namespace Backend.Model.Entity
 
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [MaxLength(500)]
+        public string? Note { get; set; }
     }
 }

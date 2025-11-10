@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace backend.Migrations
 {
     [DbContext(typeof(SQLServerDbContext))]
-    [Migration("20251108055423_InitialCreate")]
+    [Migration("20251108125028_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -233,11 +233,18 @@ namespace backend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("Carrier")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("EstimatedDelivery")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("ReceiverName")
                         .IsRequired()
@@ -340,6 +347,10 @@ namespace backend.Migrations
 
                     b.Property<long>("InvoiceId")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Status")
                         .IsRequired()

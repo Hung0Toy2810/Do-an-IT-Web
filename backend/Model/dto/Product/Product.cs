@@ -63,6 +63,7 @@ namespace Backend.Model.dto.Product
         public decimal DiscountedPrice { get; set; }
         public float Rating { get; set; } // Thêm rating
         public long TotalRatings { get; set; } // Thêm totalRatings
+        public int Stock { get; set; } = 0;
     }
 
     public class ProductDetailDto

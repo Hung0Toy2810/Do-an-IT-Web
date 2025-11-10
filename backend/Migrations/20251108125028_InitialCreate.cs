@@ -107,7 +107,9 @@ namespace backend.Migrations
                     ShippingAddress_DistrictName = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     ShippingAddress_WardsId = table.Column<int>(type: "int", nullable: false),
                     ShippingAddress_WardsName = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    ShippingAddress_DetailAddress = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                    ShippingAddress_DetailAddress = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Carrier = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    EstimatedDelivery = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -149,7 +151,8 @@ namespace backend.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     InvoiceId = table.Column<long>(type: "bigint", nullable: false),
                     Status = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Note = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true)
                 },
                 constraints: table =>
                 {

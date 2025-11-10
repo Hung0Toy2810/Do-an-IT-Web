@@ -10,9 +10,6 @@ using Backend.Service.AdministratorService;
 using Backend.Service.CustomerService;
 using Backend.Service.Password;
 using Backend.Service.Token;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using Backend.Middleware;
 using Backend.Service.CategoryService;
 using Backend.Repository.CategoryRepository;
@@ -22,7 +19,15 @@ using Backend.Service.Inventory;
 using Backend.Repository;
 using Backend.Repository.CommentRepository;
 using Backend.Service.CommentService;
-
+using Backend.Repository.CartRepository;
+using Backend.Service.Cart;
+using Backend.Repository.VNPayPaymentRepository;
+using Backend.Repository.InvoiceStatusHistoryRepository;
+using Backend.Repository.InvoiceRepository;
+using Backend.Repository.InvoiceDetailRepository;
+using Backend.Service.Payment;
+using Backend.Service.ViettelPost;
+using Backend.Repository.ViettelPost;
 namespace Backend 
 {
     public static class HostBuilderConfig
@@ -31,7 +36,10 @@ namespace Backend
             Host.CreateDefaultBuilder(args)
                 .ConfigureServices((hostContext, services) =>
                 {
+                    services.AddHttpContextAccessor();
                     var configuration = hostContext.Configuration;
+                    // AddHttpClient()
+                    services.AddHttpClient();
 
                     // ===== Logging =====
                     services.AddLogging(builder =>
@@ -96,9 +104,19 @@ namespace Backend
 
                     // ===== JWT Authentication =====
                     services.AddJwtAuthentication(configuration);
-                    
-                    services.AddAuthorization();
 
+                    services.AddAuthorization();
+                    
+                    // ===== Viettel Post Token Service (luôn có token) =====
+                    services.AddSingleton<ViettelPostTokenService>();
+                    services.AddHostedService<ViettelPostBackgroundService>();
+                    // ===== Viettel Post Address (MongoDB Cache 5 ngày) =====
+                    services.AddSingleton<ViettelPostTokenService>();
+                    services.AddHostedService<ViettelPostBackgroundService>();
+                    services.AddScoped<IViettelPostAddressRepository, ViettelPostAddressRepository>();
+                    services.AddScoped<IViettelPostAddressService, ViettelPostAddressService>();
+                    //services.AddHostedService<ViettelPostAddressInitializer>();  ##### tạm thời tắt đi để build nhanh
+                    services.AddHostedService<ViettelPostAddressMonthlyUpdater>();
                     // ===== Controllers =====
                     services.AddControllers()
                         .AddApplicationPart(typeof(HostBuilderConfig).Assembly)
@@ -155,7 +173,14 @@ namespace Backend
                     services.AddScoped<IShipmentBatchRepository, ShipmentBatchRepository>();
                     services.AddScoped<ICommentRepository, CommentRepository>();
                     services.AddScoped<ICommentService, CommentService>();
-
+                    services.AddScoped<ICartRepository, CartRepository>();
+                    services.AddScoped<ICartService, CartService>();
+                    services.AddScoped<IVNPayPaymentRepository, VNPayPaymentRepository>();
+                    services.AddScoped<IInvoiceStatusHistoryRepository, InvoiceStatusHistoryRepository>();
+                    services.AddScoped<IInvoiceRepository, InvoiceRepository>();
+                    services.AddScoped<IInvoiceDetailRepository, InvoiceDetailRepository>();
+                    services.AddScoped<IVNPayService, VNPayService>();
+                    services.AddScoped<IViettelPostAddressValidatorService, ViettelPostAddressValidatorService>();
                 })
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
