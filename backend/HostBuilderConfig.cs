@@ -28,6 +28,10 @@ using Backend.Repository.InvoiceDetailRepository;
 using Backend.Service.Payment;
 using Backend.Service.ViettelPost;
 using Backend.Repository.ViettelPost;
+using Backend.Service.Stock;
+using Backend.Service.Shipping;
+using Backend.Service;
+using Backend.Service.Checkout;
 namespace Backend 
 {
     public static class HostBuilderConfig
@@ -110,13 +114,13 @@ namespace Backend
                     // ===== Viettel Post Token Service (luôn có token) =====
                     services.AddSingleton<ViettelPostTokenService>();
                     services.AddHostedService<ViettelPostBackgroundService>();
-                    // ===== Viettel Post Address (MongoDB Cache 5 ngày) =====
                     services.AddSingleton<ViettelPostTokenService>();
                     services.AddHostedService<ViettelPostBackgroundService>();
                     services.AddScoped<IViettelPostAddressRepository, ViettelPostAddressRepository>();
                     services.AddScoped<IViettelPostAddressService, ViettelPostAddressService>();
                     //services.AddHostedService<ViettelPostAddressInitializer>();  ##### tạm thời tắt đi để build nhanh
                     services.AddHostedService<ViettelPostAddressMonthlyUpdater>();
+                    services.AddScoped<IViettelPostMockService, ViettelPostMockService>();
                     // ===== Controllers =====
                     services.AddControllers()
                         .AddApplicationPart(typeof(HostBuilderConfig).Assembly)
@@ -181,6 +185,14 @@ namespace Backend
                     services.AddScoped<IInvoiceDetailRepository, InvoiceDetailRepository>();
                     services.AddScoped<IVNPayService, VNPayService>();
                     services.AddScoped<IViettelPostAddressValidatorService, ViettelPostAddressValidatorService>();
+                    services.AddScoped<IStockAllocationService, StockAllocationService>();
+                    services.AddScoped<IViettelPostMockService, ViettelPostMockService>();
+                    services.AddScoped<IViettelPostWebhookService, ViettelPostWebhookService>();
+                    services.AddScoped<IShippingService, ShippingService>();
+                    // StockCleanupService : BackgroundService
+                    services.AddHostedService<StockCleanupService>();
+                    services.AddScoped<ICheckoutService, CheckoutService>();
+
                 })
                 .ConfigureWebHostDefaults(webBuilder =>
                 {

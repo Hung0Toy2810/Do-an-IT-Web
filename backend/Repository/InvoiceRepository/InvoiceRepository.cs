@@ -97,5 +97,17 @@ namespace Backend.Repository.InvoiceRepository
                 .Include(i => i.VNPayPayment)
                 .FirstOrDefaultAsync(i => i.TrackingCode == trackingCode);
         }
+
+        public async Task<bool> UpdateTrackingCodeAsync(long invoiceId, string trackingCode)
+        {
+            var invoice = await _context.Invoices.FindAsync(invoiceId);
+            if (invoice == null) return false;
+
+            invoice.TrackingCode = trackingCode;
+            invoice.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
     }
 }

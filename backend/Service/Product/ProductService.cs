@@ -28,6 +28,7 @@ namespace Backend.Service.Product
         Task<BulkOperationResultDto> BulkUpdatePricesAsync(List<BulkPriceUpdateDto> updates);
         Task<bool> UpdateIsDiscontinuedAsync(string productSlug, bool isDiscontinued);
         Task<ProductSearchResultDto> SearchAllProductsAsync(ProductSearchAllRequestDto request);
+
     }
 
     public class ProductService : IProductService
@@ -36,6 +37,7 @@ namespace Backend.Service.Product
         private readonly IProductDocumentService _productDocumentService;
         private readonly IProductRepository _productRepository;
         private readonly IProductSearchService _productSearchService;
+        private readonly IProductStockService _productStockService;
         // logger
         private readonly ILogger<ProductService> _logger;
 
@@ -44,6 +46,7 @@ namespace Backend.Service.Product
             IProductDocumentService productDocumentService,
             IProductRepository productRepository,
             ILogger<ProductService>? logger,
+            IProductStockService productStockService,
             IProductSearchService productSearchService)
             
 
@@ -53,6 +56,7 @@ namespace Backend.Service.Product
             _productRepository = productRepository;
             _productSearchService = productSearchService;
             _logger = logger ?? NullLogger<ProductService>.Instance;
+            _productStockService = productStockService;
         }
 
         public async Task<ProductDetailDto> CreateProductAsync(CreateProductDto dto)
@@ -442,14 +446,20 @@ namespace Backend.Service.Product
 
         public async Task<ProductDetailDto?> GetProductDetailByIdAsync(long productId)
         {
-            // Gọi ProductDocumentService để lấy chi tiết sản phẩm từ MongoDB
             var productDocument = await _productDocumentService.GetProductDetailByIdAsync(productId);
             if (productDocument == null) return null;
 
-            // Lấy Rating và TotalRatings từ SQL dựa trên Id
             var sqlProduct = await _dbContext.Products
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == productId);
+
+            // DÙNG _productStockService ĐỂ LẤY AVAILABLE STOCK
+            var availableStock = await _productStockService.GetAvailableStockByVariantsAsync(productDocument.Slug);
+
+            foreach (var variant in productDocument.Variants)
+            {
+                variant.Stock = availableStock.GetValueOrDefault(variant.Slug, 0);
+            }
 
             return new ProductDetailDto
             {
@@ -468,14 +478,19 @@ namespace Backend.Service.Product
 
         public async Task<ProductDetailDto?> GetProductDetailBySlugAsync(string productSlug)
         {
-            // Gọi ProductDocumentService để lấy chi tiết sản phẩm từ MongoDB
             var productDocument = await _productDocumentService.GetProductDetailBySlugAsync(productSlug);
             if (productDocument == null) return null;
 
-            // Lấy Rating và TotalRatings từ SQL dựa trên Id
             var sqlProduct = await _dbContext.Products
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == productDocument.Id);
+
+            var availableStock = await _productStockService.GetAvailableStockByVariantsAsync(productSlug);
+
+            foreach (var variant in productDocument.Variants)
+            {
+                variant.Stock = availableStock.GetValueOrDefault(variant.Slug, 0);
+            }
 
             return new ProductDetailDto
             {

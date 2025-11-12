@@ -204,7 +204,6 @@ namespace Backend.SQLDbContext
                     .HasDatabaseName("IX_Invoice_TrackingCode");
             });
 
-            // Cấu hình cho InvoiceDetail
             modelBuilder.Entity<InvoiceDetail>(entity =>
             {
                 // Quan hệ 1-n với Invoice
@@ -218,20 +217,22 @@ namespace Backend.SQLDbContext
                     .WithMany(e => e.InvoiceDetails)
                     .HasForeignKey(e => e.ProductId)
                     .OnDelete(DeleteBehavior.Restrict);
-                // Quan hệ 1-n với ShipmentBatch
+                    
+                // ✅ Quan hệ 1-n với ShipmentBatch - CHO PHÉP NULL
                 entity.HasOne(e => e.ShipmentBatch)
                     .WithMany(e => e.InvoiceDetails)
                     .HasForeignKey(e => e.ShipmentBatchId)
+                    .IsRequired(false) // ⭐ THÊM DÒNG NÀY
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // Index composite cho InvoiceId và ProductId để tối ưu chi tiết hóa đơn
+                // Index composite cho InvoiceId và ProductId
                 entity.HasIndex(e => new { e.InvoiceId, e.ProductId })
                     .HasDatabaseName("IX_InvoiceDetail_InvoiceId_ProductId");
 
                 // Ràng buộc check cho Quantity > 0
                 entity.ToTable(tb => tb.HasCheckConstraint("CK_InvoiceDetail_Quantity_Positive", "[Quantity] > 0"));
 
-                // Index cho Option nếu truy vấn theo option
+                // Index cho VariantSlug
                 entity.HasIndex(e => e.VariantSlug)
                     .HasDatabaseName("IX_InvoiceDetail_Option");
             });

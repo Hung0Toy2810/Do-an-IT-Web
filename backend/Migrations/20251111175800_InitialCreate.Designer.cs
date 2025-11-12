@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace backend.Migrations
 {
     [DbContext(typeof(SQLServerDbContext))]
-    [Migration("20251108125028_InitialCreate")]
+    [Migration("20251111175800_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -246,6 +246,11 @@ namespace backend.Migrations
                     b.Property<DateTime?>("EstimatedDelivery")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<string>("ReceiverName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -258,6 +263,10 @@ namespace backend.Migrations
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("TrackingCode")
                         .IsRequired()
@@ -308,7 +317,7 @@ namespace backend.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
-                    b.Property<long>("ShipmentBatchId")
+                    b.Property<long?>("ShipmentBatchId")
                         .HasColumnType("bigint");
 
                     b.Property<string>("VariantSlug")
@@ -774,8 +783,7 @@ namespace backend.Migrations
                     b.HasOne("Backend.Model.Entity.ShipmentBatch", "ShipmentBatch")
                         .WithMany("InvoiceDetails")
                         .HasForeignKey("ShipmentBatchId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Invoice");
 

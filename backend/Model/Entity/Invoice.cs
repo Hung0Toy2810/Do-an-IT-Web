@@ -36,6 +36,14 @@ namespace Backend.Model.Entity
 
         public DateTime? EstimatedDelivery { get; set; }
 
+        [Required]
+        [Precision(18, 2)]
+        public decimal TotalAmount { get; set; }
+
+        [Required]
+        [MaxLength(20)]
+        public string PaymentMethod { get; set; } = "COD";
+
         public virtual ICollection<InvoiceDetail> InvoiceDetails { get; set; } = new List<InvoiceDetail>();
         public virtual ICollection<InvoiceStatusHistory> StatusHistories { get; set; } = new List<InvoiceStatusHistory>();
         public virtual VNPayPayment? VNPayPayment { get; set; }

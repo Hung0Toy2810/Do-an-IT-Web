@@ -83,8 +83,10 @@ namespace Backend.Service.Product
             return await _productRepository.UpdateAsync(product);
         }
 
-        public async Task<bool> ReserveStockAsync(string productSlug, string variantSlug, int quantity, string orderId, int expirationMinutes = 15)
+        public async Task<bool> ReserveStockAsync(string productSlug, string variantSlug, int quantity, string orderId, int expirationMinutes = 10)
         {
+            if (quantity <= 0) throw new ArgumentException("Số lượng phải > 0", nameof(quantity));
+
             var product = await _productRepository.GetBySlugAsync(productSlug);
             if (product == null)
                 throw new Backend.Exceptions.NotFoundException($"Không tìm thấy sản phẩm '{productSlug}'");
@@ -93,8 +95,12 @@ namespace Backend.Service.Product
             if (variant == null)
                 throw new Backend.Exceptions.NotFoundException($"Không tìm thấy biến thể '{variantSlug}'");
 
-            if (variant.Stock < quantity)
-                throw new Backend.Exceptions.BusinessRuleException($"Số lượng tồn kho không đủ. Sẵn có: {variant.Stock}");
+            var availableDict = await GetAvailableStockByVariantsAsync(productSlug);
+            var available = availableDict.GetValueOrDefault(variantSlug, 0);
+
+            if (available < quantity)
+                throw new Backend.Exceptions.BusinessRuleException(
+                    $"Không đủ hàng khả dụng. Còn: {available}, Yêu cầu: {quantity}");
 
             var reservation = new StockReservation
             {
@@ -109,6 +115,7 @@ namespace Backend.Service.Product
 
             await _reservationRepository.CreateAsync(reservation);
             variant.Stock -= quantity;
+
             return await _productRepository.UpdateAsync(product);
         }
 
@@ -140,7 +147,22 @@ namespace Backend.Service.Product
             if (product == null)
                 throw new Backend.Exceptions.NotFoundException($"Không tìm thấy sản phẩm '{productSlug}'");
 
-            return product.Variants.ToDictionary(v => v.Slug, v => v.Stock);
+            var now = DateTime.UtcNow;
+            var activeReservations = await _reservationRepository.GetActiveReservationsByProductIdAsync(product.Id);
+
+            var reservedByVariant = activeReservations
+                .Where(r => r.Status == "Reserved" && r.ExpiresAt > now)
+                .GroupBy(r => r.VariantSlug)
+                .ToDictionary(g => g.Key, g => g.Sum(r => r.ReservedQuantity));
+
+            var result = new Dictionary<string, int>();
+            foreach (var variant in product.Variants)
+            {
+                var reserved = reservedByVariant.GetValueOrDefault(variant.Slug, 0);
+                result[variant.Slug] = Math.Max(0, variant.Stock - reserved);
+            }
+
+            return result;
         }
 
         public async Task<BulkOperationResultDto> BulkUpdateStockAsync(List<BulkStockUpdateDto> updates)

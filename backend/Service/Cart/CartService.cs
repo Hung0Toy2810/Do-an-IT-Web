@@ -37,7 +37,6 @@ namespace Backend.Service.Cart
             }
         }
 
-        // Lấy variant từ ProductDetailDto (chỉ 1 lần gọi DB)
         private ProductVariant? FindVariant(ProductDetailDto product, string variantSlug)
         {
             return product.Variants.FirstOrDefault(v => v.Slug == variantSlug);
@@ -50,7 +49,6 @@ namespace Backend.Service.Cart
 
             var customerId = CurrentCustomerId;
 
-            // 1. LẤY TOÀN BỘ SẢN PHẨM (chỉ 1 lần)
             var product = await _productService.GetProductDetailByIdAsync(req.ProductId);
             if (product == null)
                 return new CartOperationResultDto { Success = false, Message = "Không tìm thấy sản phẩm" };
@@ -70,7 +68,7 @@ namespace Backend.Service.Cart
                 return new CartOperationResultDto
                 {
                     Success = false,
-                    Message = $"Vui lòng chọn số lượng ít hơn. Hiện chỉ còn {variant.Stock} sản phẩm."
+                    Message = $"Chỉ còn {variant.Stock} sản phẩm. Vui lòng chọn số lượng ít hơn."
                 };
             }
 
@@ -145,13 +143,27 @@ namespace Backend.Service.Cart
             var dbItems = await _cartRepository.GetAllCartItemsAsync(customerId);
             var result = new GetCartResponseDto();
 
+            if (!dbItems.Any()) return result;
+
+            var productIds = dbItems.Select(x => x.ProductId).Distinct().ToList();
+            var productTasks = productIds.Select(id => _productService.GetProductDetailByIdAsync(id));
+            var products = await Task.WhenAll(productTasks);
+            var productDict = products
+                .Where(p => p != null)
+                .ToDictionary(p => p!.Id, p => p!);
+
             foreach (var item in dbItems)
             {
-                var product = await _productService.GetProductDetailByIdAsync(item.ProductId);
-                if (product == null) continue;
+                if (!productDict.TryGetValue(item.ProductId, out var product)) continue;
 
                 var variant = FindVariant(product, item.VariantSlug);
                 if (variant == null) continue;
+
+                // SỬA LỖI: BỎ QUA NẾU HẾT HÀNG (STOCK = 0)
+                if (variant.Stock <= 0)
+                {
+                    continue;
+                }
 
                 var qty = item.Quantity;
                 var message = string.Empty;

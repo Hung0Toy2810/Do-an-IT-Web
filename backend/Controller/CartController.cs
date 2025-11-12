@@ -1,5 +1,10 @@
+// Backend/Controllers/CartController.cs
+using Backend.Model.dto.CartDtos;
 using Backend.Service.Cart;
-namespace Backend.Model.dto.CartDtos
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Backend.Controllers
 {
     [ApiController]
     [Route("api/cart")]
@@ -7,18 +12,56 @@ namespace Backend.Model.dto.CartDtos
     public class CartController : ControllerBase
     {
         private readonly ICartService _cartService;
-        public CartController(ICartService cartService) => _cartService = cartService;
 
-        [HttpPost] public async Task<IActionResult> Add([FromBody] AddToCartRequestDto dto)
-            => Ok(await _cartService.AddToCartAsync(dto));
+        public CartController(ICartService cartService)
+        {
+            _cartService = cartService ?? throw new ArgumentNullException(nameof(cartService));
+        }
 
-        [HttpPut("{cartId}")] public async Task<IActionResult> Update(long cartId, [FromBody] UpdateCartItemRequestDto dto)
-            => Ok(await _cartService.UpdateCartItemAsync(cartId, dto));
+        [HttpPost]
+        public async Task<IActionResult> Add([FromBody] AddToCartRequestDto dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
-        [HttpDelete] public async Task<IActionResult> Clear()
-            => Ok(await _cartService.ClearCartAsync());
+            var result = await _cartService.AddToCartAsync(dto);
 
-        [HttpGet] public async Task<IActionResult> Get()
-            => Ok(await _cartService.GetCartAsync());
+            return result.Success
+                ? Ok(new { Message = result.Message })
+                : BadRequest(new { Message = result.Message });
+        }
+
+        [HttpPut("{cartItemId}")]
+        public async Task<IActionResult> Update(long cartItemId, [FromBody] UpdateCartItemRequestDto dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var result = await _cartService.UpdateCartItemAsync(cartItemId, dto);
+
+            return result.Success
+                ? Ok(new { Message = "Cập nhât giỏ hàng thành công" })
+                : BadRequest(new { Message = result.Message });
+        }
+
+        [HttpDelete]
+        public async Task<IActionResult> Clear()
+        {
+            var result = await _cartService.ClearCartAsync();
+
+            return Ok(new { Message = result.Message });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Get()
+        {
+            var cart = await _cartService.GetCartAsync();
+
+            return Ok(new
+            {
+                Message = "Lấy giỏ hàng thành công",
+                Data = cart
+            });
+        }
     }
 }

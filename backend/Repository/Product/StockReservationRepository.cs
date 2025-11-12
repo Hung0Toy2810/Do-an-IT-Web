@@ -1,12 +1,17 @@
 using Backend.Model.Nosql;
 using Backend.Service.DbFactory;
 using MongoDB.Driver;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace Backend.Repository.Product
 {
     public class StockReservation
     {
-        public string? MongoId { get; set; }
+        [BsonId] // Bắt buộc, nói với driver đây là _id
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? MongoId { get; set; } // MongoId sẽ map với _id
+
         public long ProductId { get; set; }
         public string VariantSlug { get; set; } = string.Empty;
         public int ReservedQuantity { get; set; }
@@ -23,6 +28,8 @@ namespace Backend.Repository.Product
         Task<bool> UpdateStatusAsync(string orderId, string status);
         Task<List<StockReservation>> GetExpiredReservationsAsync();
         Task<bool> DeleteAsync(string orderId);
+
+        Task<List<StockReservation>> GetActiveReservationsByProductIdAsync(long productId);
     }
 
     public class StockReservationRepository : IStockReservationRepository
@@ -80,6 +87,16 @@ namespace Backend.Repository.Product
         {
             var result = await _collection.DeleteOneAsync(x => x.OrderId == orderId);
             return result.DeletedCount > 0;
+        }
+
+        public async Task<List<StockReservation>> GetActiveReservationsByProductIdAsync(long productId)
+        {
+            var now = DateTime.UtcNow;
+            return await _collection
+                .Find(r => r.ProductId == productId && 
+                        r.Status == "Reserved" && 
+                        r.ExpiresAt > now)
+                .ToListAsync();
         }
     }
 }

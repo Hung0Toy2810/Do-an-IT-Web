@@ -29,9 +29,7 @@ namespace Backend.Model.Entity
 
         [Required, MaxLength(100)]
         public string VariantSlug { get; set; } = string.Empty;
-
-        [Required]
-        public long ShipmentBatchId { get; set; }
+        public long? ShipmentBatchId { get; set; }
         [ForeignKey(nameof(ShipmentBatchId))]
         public virtual ShipmentBatch ShipmentBatch { get; set; } = null!;
     }

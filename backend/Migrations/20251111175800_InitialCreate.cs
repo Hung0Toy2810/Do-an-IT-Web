@@ -109,7 +109,9 @@ namespace backend.Migrations
                     ShippingAddress_WardsName = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     ShippingAddress_DetailAddress = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Carrier = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
-                    EstimatedDelivery = table.Column<DateTime>(type: "datetime2", nullable: true)
+                    EstimatedDelivery = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    TotalAmount = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    PaymentMethod = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -334,7 +336,7 @@ namespace backend.Migrations
                     Quantity = table.Column<int>(type: "int", nullable: false),
                     Price = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     VariantSlug = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    ShipmentBatchId = table.Column<long>(type: "bigint", nullable: false)
+                    ShipmentBatchId = table.Column<long>(type: "bigint", nullable: true)
                 },
                 constraints: table =>
                 {
