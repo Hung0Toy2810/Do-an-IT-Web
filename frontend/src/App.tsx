@@ -11,10 +11,10 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
 import ProductDetail from './pages/ProductDetail';
 import SearchPage from './pages/SearchPage';
-import JoinEmailList from './pages/JoinEmailList';
-import ThanksPage from './pages/ThanksPage';
 import SubCategoryPage from './pages/SubCategoryPage';
-
+import ShoppingCart from './pages/ShoppingCart';
+// src/pages/OrderSuccess.tsx
+import OrderSuccess from './pages/OrderSuccess';
 export default function App() {
   return (
     <BrowserRouter>
@@ -26,6 +26,8 @@ export default function App() {
             <Route path="/product/:slug" element={<ProductDetail />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/subcategory/:slug" element={<SubCategoryPage />} />
+            <Route path="/cart" element={<ShoppingCart />} />
+            <Route path="/order-success" element={<OrderSuccess />} />
           </Route>
 
           {/* Trang riêng (không có Header/Footer) */}
@@ -34,8 +36,6 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/change-password" element={<ChangePasswordPage />} />
-          <Route path="/join" element={<JoinEmailList />} />
-          <Route path="/thanks" element={<ThanksPage />} />
         </Routes>
       </NotificationProvider>
     </BrowserRouter>

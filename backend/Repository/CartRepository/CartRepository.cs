@@ -41,16 +41,32 @@ namespace Backend.Repository.CartRepository
 
         public async Task AddOrUpdateCartItemAsync(Cart cartItem)
         {
+            if (cartItem.Quantity < 0)
+                throw new ArgumentException("Số lượng không được âm");
+
             var existing = await GetCartItemAsync(cartItem.CustomerId, cartItem.ProductId, cartItem.VariantSlug);
+
             if (existing == null)
             {
+                // Nếu là thêm mới mà Quantity = 0 → không làm gì cả
+                if (cartItem.Quantity == 0) return;
+
                 await _context.Carts.AddAsync(cartItem);
             }
             else
             {
-                existing.Quantity = cartItem.Quantity;
-                _context.Carts.Update(existing);
+                if (cartItem.Quantity == 0)
+                {
+                    // Xóa item nếu số lượng = 0
+                    _context.Carts.Remove(existing);
+                }
+                else
+                {
+                    existing.Quantity = cartItem.Quantity;
+                    _context.Carts.Update(existing);
+                }
             }
+
             await _context.SaveChangesAsync();
         }
 

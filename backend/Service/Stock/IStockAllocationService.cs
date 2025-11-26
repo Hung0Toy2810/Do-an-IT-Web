@@ -5,5 +5,6 @@ namespace Backend.Service.Stock
     {
         Task<long> AllocateFromBatchAsync(long productId, string variantSlug, int quantity, long invoiceDetailId);
         Task ReleaseFromBatchAsync(long invoiceDetailId);
+        Task<bool> ReturnToBatchAsync(long invoiceDetailId);
     }
 }

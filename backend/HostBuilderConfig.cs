@@ -32,6 +32,7 @@ using Backend.Service.Stock;
 using Backend.Service.Shipping;
 using Backend.Service;
 using Backend.Service.Checkout;
+using Backend.Services;
 namespace Backend 
 {
     public static class HostBuilderConfig
@@ -187,11 +188,15 @@ namespace Backend
                     services.AddScoped<IViettelPostAddressValidatorService, ViettelPostAddressValidatorService>();
                     services.AddScoped<IStockAllocationService, StockAllocationService>();
                     services.AddScoped<IViettelPostMockService, ViettelPostMockService>();
-                    services.AddScoped<IViettelPostWebhookService, ViettelPostWebhookService>();
                     services.AddScoped<IShippingService, ShippingService>();
                     // StockCleanupService : BackgroundService
                     services.AddHostedService<StockCleanupService>();
                     services.AddScoped<ICheckoutService, CheckoutService>();
+                    services.AddScoped<IRedisProductViewService, RedisProductViewService>();
+                    services.AddScoped<BestSellerService>();
+
+                    //ShippingSimulationService : BackgroundService
+                    services.AddHostedService<ShippingSimulationService>();
 
                 })
                 .ConfigureWebHostDefaults(webBuilder =>

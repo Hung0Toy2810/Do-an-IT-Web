@@ -39,5 +39,62 @@ namespace Backend.Controllers
                 Message = "Xuất hàng thành công"
             });
         }
+
+        // [HttpGet("batches")]
+        // public async Task<IActionResult> GetBatches(
+        //     [FromQuery] string productSlug,
+        //     [FromQuery] string variantSlug)
+        // {
+        //     if (string.IsNullOrWhiteSpace(productSlug) || string.IsNullOrWhiteSpace(variantSlug))
+        //         return BadRequest(new { Message = "productSlug và variantSlug là bắt buộc" });
+
+        //     try
+        //     {
+        //         var batches = await _inventoryService.GetBatchesByProductAndVariantAsync(productSlug, variantSlug);
+        //         return Ok(new
+        //         {
+        //             Message = "Lấy danh sách lô hàng thành công",
+        //             Data = batches
+        //         });
+        //     }
+        //     catch (NotFoundException ex)
+        //     {
+        //         return NotFound(new { Message = ex.Message });
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         return StatusCode(500, new { Message = "Lỗi hệ thống", Detail = ex.Message });
+        //     }
+        // }
+        
+        [HttpGet("batches/all")]
+        public async Task<IActionResult> GetAllBatches(
+            [FromQuery] string productSlug,
+            [FromQuery] string variantSlug)
+        {
+            if (string.IsNullOrWhiteSpace(productSlug) || string.IsNullOrWhiteSpace(variantSlug))
+                return BadRequest(new { Message = "productSlug và variantSlug là bắt buộc" });
+
+            try
+            {
+                var batches = await _inventoryService.GetAllBatchesByProductAndVariantAsync(productSlug, variantSlug);
+                return Ok(new
+                {
+                    Message = "Lấy tất cả lô hàng thành công (bao gồm lô đã hết)",
+                    Data = batches,
+                    Total = batches.Count,
+                    InStock = batches.Count(b => b.RemainingQuantity > 0),
+                    OutOfStock = batches.Count(b => b.RemainingQuantity == 0)
+                });
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống", Detail = ex.Message });
+            }
+        }
     }
 }

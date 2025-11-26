@@ -2,6 +2,7 @@
 using Backend.Model.Nosql;
 using MongoDB.Driver;
 using Backend.Service.DbFactory;
+using Backend.Services;
 
 namespace Backend.Repository.Product
 {
@@ -22,12 +23,13 @@ namespace Backend.Repository.Product
     public class ProductDocumentRepository : IProductDocumentRepository
     {
         private readonly IMongoCollection<ProductDocument> _collection;
+        private readonly IRedisProductViewService _viewService;
 
-        public ProductDocumentRepository(IMongoDbContextFactory factory)
+        public ProductDocumentRepository(IMongoDbContextFactory factory, IRedisProductViewService viewService)
         {
             var mongoContext = factory.CreateContext();
             _collection = mongoContext.GetCollection<ProductDocument>("products");
-            
+            _viewService = viewService;
             CreateIndexes();
         }
 
@@ -83,7 +85,14 @@ namespace Backend.Repository.Product
 
         public async Task<ProductDocument?> GetBySlugAsync(string slug)
         {
-            return await _collection.Find(x => x.Slug == slug).FirstOrDefaultAsync();
+            var product = await _collection.Find(x => x.Slug == slug).FirstOrDefaultAsync();
+
+            if (product != null)
+            {
+                _ = Task.Run(() => _viewService.TrackViewAsync(product.Id)); // Redis thay vì Mongo
+            }
+
+            return product;
         }
 
         public async Task<ProductDocument?> GetByMongoIdAsync(string mongoId)
@@ -257,7 +266,7 @@ namespace Backend.Repository.Product
             var filters = new List<FilterDefinition<ProductDocument>>
             {
                 filterBuilder.In(x => x.Id, productIds),
-                filterBuilder.Eq(x => x.IsDiscontinued, false)  // THÊM FILTER NÀY
+                //filterBuilder.Eq(x => x.IsDiscontinued, false)  // THÊM FILTER NÀY
             };
 
             // Filter theo Brand nếu có

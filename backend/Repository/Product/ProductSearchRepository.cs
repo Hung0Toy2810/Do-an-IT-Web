@@ -65,7 +65,6 @@ namespace Backend.Repository.Product
 
             return productIds;
         }
-
         public async Task<List<ProductDocument>> GetProductsByIdsAsync(List<long> productIds)
         {
             if (productIds == null || productIds.Count == 0)

@@ -18,6 +18,9 @@ namespace Backend.Service.Inventory
         Task<string> ImportStockAsync(string productSlug, string variantSlug, int quantity, decimal? importPrice = null);
         Task<bool> ExportStockAsync(string batchCode, int quantity);
         Task<List<ExportedBatchDto>> SellStockAsync(string productSlug, string variantSlug, int quantity);
+
+        Task<List<ShipmentBatchDto>> GetBatchesByProductAndVariantAsync(string productSlug, string variantSlug);
+        Task<List<ShipmentBatchDto>> GetAllBatchesByProductAndVariantAsync(string productSlug, string variantSlug);
     }
 
     public class InventoryService : IInventoryService
@@ -182,6 +185,57 @@ namespace Backend.Service.Inventory
                 await transaction.RollbackAsync();
                 throw;
             }
+        }
+
+        public async Task<List<ShipmentBatchDto>> GetBatchesByProductAndVariantAsync(string productSlug, string variantSlug)
+        {
+            var productDoc = await _productRepository.GetBySlugAsync(productSlug);
+            if (productDoc == null)
+                throw new NotFoundException($"Không tìm thấy sản phẩm với slug '{productSlug}'");
+
+            var variant = productDoc.Variants.FirstOrDefault(v => v.Slug == variantSlug);
+            if (variant == null)
+                throw new NotFoundException($"Không tìm thấy biến thể với slug '{variantSlug}'");
+
+            var batches = await _shipmentBatchRepository.GetAvailableBatchesByProductAndVariantAsync(productDoc.Id, variantSlug);
+
+            return batches.Select(b => new ShipmentBatchDto
+            {
+                BatchCode = b.BatchCode,
+                ImportedQuantity = b.ImportedQuantity,
+                RemainingQuantity = b.RemainingQuantity,
+                ImportPrice = b.ImportPrice,
+                ImportedAt = b.ImportedAt,
+                VariantSlug = b.VariantSlug
+            }).ToList();
+        }
+
+        public async Task<List<ShipmentBatchDto>> GetAllBatchesByProductAndVariantAsync(string productSlug, string variantSlug)
+        {
+            if (string.IsNullOrWhiteSpace(productSlug))
+                throw new ArgumentException("productSlug là bắt buộc", nameof(productSlug));
+            if (string.IsNullOrWhiteSpace(variantSlug))
+                throw new ArgumentException("variantSlug là bắt buộc", nameof(variantSlug));
+
+            var productDoc = await _productRepository.GetBySlugAsync(productSlug);
+            if (productDoc == null)
+                throw new NotFoundException($"Không tìm thấy sản phẩm với slug '{productSlug}'");
+
+            var variant = productDoc.Variants.FirstOrDefault(v => v.Slug == variantSlug);
+            if (variant == null)
+                throw new NotFoundException($"Không tìm thấy biến thể với slug '{variantSlug}'");
+
+            var batches = await _shipmentBatchRepository.GetAllBatchesByProductAndVariantAsync(productDoc.Id, variantSlug);
+
+            return batches.Select(b => new ShipmentBatchDto
+            {
+                BatchCode = b.BatchCode,
+                ImportedQuantity = b.ImportedQuantity,
+                RemainingQuantity = b.RemainingQuantity,
+                ImportPrice = b.ImportPrice,
+                ImportedAt = b.ImportedAt,
+                VariantSlug = b.VariantSlug
+            }).ToList();
         }
     }
 }

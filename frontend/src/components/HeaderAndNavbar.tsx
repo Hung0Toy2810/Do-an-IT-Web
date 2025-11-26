@@ -113,6 +113,8 @@ export default function HeaderAndNavbar() {
 
   const handleUserClick = () => navigate(isTokenValid() ? '/profile' : '/login');
 
+  const handleMovetoCart = () => navigate('/cart');
+
   /* ==================== MENU DATA ==================== */
   const shoppingMenu = {
     title: 'Mua sắm',
@@ -166,13 +168,8 @@ export default function HeaderAndNavbar() {
                     <SearchIcon className="w-5 h-5" />
                   </button>
                 </form>
-                <button className="relative p-2.5 text-gray-700 hover:text-violet-700 hover:bg-violet-50 rounded-xl transition-all">
+                <button onClick={handleMovetoCart} className="relative p-2.5 text-gray-700 hover:text-violet-700 hover:bg-violet-50 rounded-xl transition-all">
                   <ShoppingCart className="w-5 h-5" />
-                  {cartCount > 0 && (
-                    <span className="absolute flex items-center justify-center w-5 h-5 text-xs font-bold text-white rounded-full -top-1 -right-1 bg-violet-700">
-                      {cartCount}
-                    </span>
-                  )}
                 </button>
                 <button onClick={handleUserClick} className="p-2.5 text-gray-700 hover:text-violet-700 hover:bg-violet-50 rounded-xl transition-all">
                   <User className="w-5 h-5" />

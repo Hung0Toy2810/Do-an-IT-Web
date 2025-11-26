@@ -39,6 +39,42 @@ interface CommentDto {
   avatarUrl: string;
 }
 
+// ============= API: ADD TO CART =============
+const API_BASE = 'http://localhost:5067';
+
+const addToCart = async (
+  productId: number,
+  variantSlug: string,
+  quantity: number
+): Promise<{ success: boolean; message: string }> => {
+  const token = getCookie('auth_token');
+  if (!token) {
+    return { success: false, message: 'Vui lòng đăng nhập để thêm vào giỏ hàng' };
+  }
+
+  try {
+    console.log('Calling POST /api/cart:', { productId, variantSlug, quantity });
+
+    const response = await fetch(`${API_BASE}/api/cart`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ productId, variantSlug, quantity }),
+    });
+
+    const result = await response.json();
+    console.log('API Response:', response.status, result);
+
+    const message = result.message || 'Lỗi không xác định';
+    return { success: response.ok, message };
+  } catch (error) {
+    console.error('Add to cart error:', error);
+    return { success: false, message: 'Lỗi kết nối đến server' };
+  }
+};
+
 // ============= COMPONENT: PRODUCT IMAGES =============
 interface ProductImagesProps {
   images: string[];
@@ -105,6 +141,7 @@ interface ProductInfoProps {
   currentStock: number;
   currentVariantPrice: { original: number; discounted?: number; discountPercentage: number };
   canAddToCart: boolean;
+  adding?: boolean;
   onAttributeChange: (attributeName: string, value: string) => void;
   onQuantityChange: (delta: number) => void;
   onAddToCart: () => void;
@@ -118,6 +155,7 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
   currentStock,
   currentVariantPrice,
   canAddToCart,
+  adding = false,
   onAttributeChange,
   onQuantityChange,
   onAddToCart,
@@ -213,21 +251,39 @@ const ProductInfo: React.FC<ProductInfoProps> = ({
       <div className="flex gap-3 mt-6">
         <button
           onClick={onAddToCart}
-          disabled={!canAddToCart}
+          disabled={!canAddToCart || adding}
           className="flex-1 flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-semibold text-violet-800 bg-white border-2 border-violet-800 hover:bg-violet-50 shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ borderRadius: '14px' }}
         >
-          <ShoppingCart className="w-5 h-5" />
-          Thêm vào giỏ
+          {adding ? (
+            <>
+              <div className="w-4 h-4 border-2 rounded-full border-violet-800 border-t-transparent animate-spin"></div>
+              Đang thêm...
+            </>
+          ) : (
+            <>
+              <ShoppingCart className="w-5 h-5" />
+              Thêm vào giỏ
+            </>
+          )}
         </button>
         <button
           onClick={onBuyNow}
-          disabled={!canAddToCart}
+          disabled={!canAddToCart || adding}
           className="flex-1 flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-semibold text-white bg-gradient-to-r from-violet-700 to-violet-800 hover:from-violet-800 hover:to-violet-900 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ borderRadius: '14px' }}
         >
-          <CreditCard className="w-5 h-5" />
-          Mua ngay
+          {adding ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white rounded-full border-t-transparent animate-spin"></div>
+              Đang xử lý...
+            </>
+          ) : (
+            <>
+              <CreditCard className="w-5 h-5" />
+              Mua ngay
+            </>
+          )}
         </button>
       </div>
     </div>
@@ -458,6 +514,7 @@ export default function ProductDetail() {
   const [selectedAttributes, setSelectedAttributes] = useState<{ [key: string]: string }>({});
   const [quantity, setQuantity] = useState(1);
   const [isLiked, setIsLiked] = useState(false);
+  const [addingToCart, setAddingToCart] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -525,6 +582,27 @@ export default function ProductDetail() {
     if (newQty >= 1 && newQty <= currentStock) setQuantity(newQty);
   };
 
+  const handleAddToCart = async () => {
+    if (!canAddToCart || addingToCart) return;
+    setAddingToCart(true);
+    const { success, message } = await addToCart(product.id, currentVariant.slug, quantity);
+    setAddingToCart(false);
+    success ? notify('success', message) : notify('error', message);
+  };
+
+  const handleBuyNow = async () => {
+    if (!canAddToCart || addingToCart) return;
+    setAddingToCart(true);
+    const { success, message } = await addToCart(product.id, currentVariant.slug, quantity);
+    setAddingToCart(false);
+    if (success) {
+      notify('success', message);
+      navigate('/cart', { replace: true });
+    } else {
+      notify('error', message);
+    }
+  };
+
   return (
     <div className="min-h-screen py-6 bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 sm:py-12">
       <div className="container max-w-screen-xl px-4 mx-auto sm:px-6 lg:px-8">
@@ -543,10 +621,11 @@ export default function ProductDetail() {
             currentStock={currentStock}
             currentVariantPrice={currentPrice}
             canAddToCart={canAddToCart}
+            adding={addingToCart}
             onAttributeChange={handleAttributeChange}
             onQuantityChange={handleQuantityChange}
-            onAddToCart={() => notify('info', `Đã thêm ${quantity} sản phẩm vào giỏ hàng`)}
-            onBuyNow={() => notify('info', `Mua ngay ${quantity} sản phẩm`)}
+            onAddToCart={handleAddToCart}
+            onBuyNow={handleBuyNow}
           />
         </div>
 

@@ -1,3 +1,11 @@
+/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.csproj.AssemblyReference.cache
+/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.GeneratedMSBuildEditorConfig.editorconfig
+/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.AssemblyInfoInputs.cache
+/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.AssemblyInfo.cs
+/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.csproj.CoreCompileInputs.cache
+/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.MvcApplicationPartsAssemblyInfo.cs
+/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.MvcApplicationPartsAssemblyInfo.cache
+/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.sourcelink.json
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/bin/Debug/net9.0/appsettings.Development.json
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/bin/Debug/net9.0/appsettings.json
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/bin/Debug/net9.0/backend.staticwebassets.endpoints.json
@@ -166,14 +174,6 @@
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/bin/Debug/net9.0/runtimes/win-x64/native/Microsoft.Data.SqlClient.SNI.dll
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/bin/Debug/net9.0/runtimes/win-x86/native/Microsoft.Data.SqlClient.SNI.dll
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/bin/Debug/net9.0/runtimes/win/lib/net9.0/System.Diagnostics.EventLog.Messages.dll
-/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.csproj.AssemblyReference.cache
-/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.GeneratedMSBuildEditorConfig.editorconfig
-/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.AssemblyInfoInputs.cache
-/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.AssemblyInfo.cs
-/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.csproj.CoreCompileInputs.cache
-/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.MvcApplicationPartsAssemblyInfo.cs
-/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.MvcApplicationPartsAssemblyInfo.cache
-/Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/backend.sourcelink.json
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/scopedcss/bundle/backend.styles.css
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/staticwebassets.build.json
 /Users/luongnguyenthanhhung/Documents/Do_an_cntt/backend/obj/Debug/net9.0/staticwebassets.development.json

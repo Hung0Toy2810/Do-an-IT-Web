@@ -1,3 +1,4 @@
+// Backend/Service/Checkout/CheckoutService.cs
 using Backend.Model.Entity;
 using Backend.Model.dto.CartDtos;
 using Backend.Service.Cart;
@@ -55,129 +56,158 @@ namespace Backend.Service.Checkout
             var cart = await _cartService.GetCartAsync();
             if (!cart.Items.Any()) return Fail("Giỏ hàng trống");
 
-            var orderId = $"ORD-{DateTime.Now:yyyyMMddHHmmss}-{customerId:N}".Substring(0, 32);
-
-            // 1. KIỂM TRA STOCK
-            foreach (var item in cart.Items)
+            try
             {
-                if (item.Quantity > item.AvailableStock)
-                    return Fail($"Sản phẩm {item.ProductName} chỉ còn {item.AvailableStock}");
-            }
-
-            // 2. RESERVE STOCK
-            foreach (var item in cart.Items)
-            {
-                await _stockService.ReserveStockAsync(
-                    productSlug: item.ProductSlug,
-                    variantSlug: item.VariantSlug,
-                    quantity: item.Quantity,
-                    orderId: orderId
-                );
-            }
-
-            // 3. TÍNH TIỀN
-            var subtotal = cart.Subtotal;
-            var shippingFee = await _shippingService.CalculateFeeAsync(req.Address);
-            var total = subtotal + shippingFee;
-
-            // 4. TẠO INVOICE
-            var invoice = new Invoice
-            {
-                CustomerId = customerId,
-                TotalAmount = total,
-                PaymentMethod = req.PaymentMethod,
-                Status = (int)InvoiceStatus.Pending,
-                ShippingAddress = req.Address,
-                TrackingCode = orderId,
-                ReceiverName = req.ReceiverName,
-                ReceiverPhone = req.ReceiverPhone,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
-                Carrier = "viettelpost"
-            };
-
-            var invoiceId = await _invoiceRepo.CreateInvoiceAsync(invoice);
-            if (invoiceId <= 0)
-            {
-                await _stockService.ReleaseStockAsync(orderId);
-                return Fail("Tạo hóa đơn thất bại");
-            }
-
-            // 5. TẠO + LƯU + GÁN BATCH ID TỪNG DETAIL
-            var details = new List<InvoiceDetail>();
-            foreach (var item in cart.Items)
-            {
-                var detail = new InvoiceDetail
+                // 1. KIỂM TRA STOCK
+                foreach (var item in cart.Items)
                 {
-                    InvoiceId = invoiceId,
-                    ProductId = item.ProductId,
-                    VariantSlug = item.VariantSlug,
-                    Quantity = item.Quantity,
-                    Price = item.DiscountedPrice,
-                    ShipmentBatchId = null
+                    if (item.Quantity > item.AvailableStock)
+                        return Fail($"Sản phẩm {item.ProductName} chỉ còn {item.AvailableStock}");
+                }
+
+                // 2. TÍNH TIỀN
+                var subtotal = cart.Subtotal;
+                var shippingFee = await _shippingService.CalculateFeeAsync(req.Address, req.PaymentMethod == "COD");
+                var total = subtotal + shippingFee;
+
+                // 3. TẠO INVOICE (Pending)
+                var invoice = new Invoice
+                {
+                    CustomerId = customerId,
+                    TotalAmount = total,
+                    PaymentMethod = req.PaymentMethod,
+                    Status = (int)InvoiceStatus.Pending,
+                    ShippingAddress = req.Address,
+                    TrackingCode = string.Empty,
+                    ReceiverName = req.ReceiverName,
+                    ReceiverPhone = req.ReceiverPhone,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    Carrier = "viettelpost"
                 };
-                details.Add(detail);
-            }
 
-            await _detailRepo.AddRangeAsync(details);
+                var invoiceId = await _invoiceRepo.CreateInvoiceAsync(invoice);
+                if (invoiceId <= 0) return Fail("Tạo hóa đơn thất bại");
 
-            foreach (var detail in details)
-            {
-                var batchId = await _allocationService.AllocateFromBatchAsync(
-                    productId: detail.ProductId,
-                    variantSlug: detail.VariantSlug,
-                    quantity: detail.Quantity,
-                    invoiceDetailId: detail.Id
-                );
-
-                if (batchId <= 0)
+                // 4. TẠO INVOICE DETAILS
+                var details = new List<InvoiceDetail>();
+                foreach (var item in cart.Items)
                 {
-                    await RollbackAsync(orderId, invoiceId);
-                    return Fail("Không đủ hàng trong kho (lô)");
+                    var detail = new InvoiceDetail
+                    {
+                        InvoiceId = invoiceId,
+                        ProductId = item.ProductId,
+                        VariantSlug = item.VariantSlug,
+                        Quantity = item.Quantity,
+                        Price = item.DiscountedPrice,
+                        ShipmentBatchId = null // ✅ CHƯA GÁN BATCH
+                    };
+                    details.Add(detail);
                 }
 
-                var updated = await _detailRepo.UpdateShipmentBatchIdAsync(detail.Id, batchId);
-                if (!updated)
+                await _detailRepo.AddRangeAsync(details);
+
+                // 5. ✅ CHỈ RESERVE (trừ Variant.Stock) - CHƯA ALLOCATE
+                foreach (var detail in details)
                 {
-                    await RollbackAsync(orderId, invoiceId);
-                    return Fail("Cập nhật lô hàng thất bại");
+                    var cartItem = cart.Items.First(i => i.ProductId == detail.ProductId && i.VariantSlug == detail.VariantSlug);
+                    
+                    await _stockService.ReserveStockAsync(
+                        productSlug: cartItem.ProductSlug,
+                        variantSlug: detail.VariantSlug,
+                        quantity: detail.Quantity,
+                        invoiceId: invoiceId,
+                        invoiceDetailId: detail.Id,
+                        expirationMinutes: req.PaymentMethod == "COD" ? 1 : 20
+                    );
+                }
+
+                await _cartService.ClearCartAsync();
+
+                // 6. XỬ LÝ THEO PHƯƠNG THỨC
+                if (req.PaymentMethod == "COD")
+                {
+                    // ✅ COD: Thanh toán ngay → Allocate + Tạo vận đơn
+                    await ProcessPaidInvoiceAsync(invoiceId, total, isCOD: true);
+
+                    var invoice2 = await _invoiceRepo.GetInvoiceByIdAsync(invoiceId);
+                    return Success(invoiceId, null, invoice2?.TrackingCode ?? string.Empty);
+                }
+                else // VNPAY
+                {
+                    var ip = _httpContext.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+                    var paymentResult = await _vnpayService.CreatePaymentUrlAsync(invoiceId, total, ip);
+
+                    if (!paymentResult.IsValid)
+                    {
+                        await RollbackAsync(invoiceId);
+                        return Fail(paymentResult.ErrorMessage ?? "Tạo link thanh toán thất bại");
+                    }
+
+                    return new CheckoutResult
+                    {
+                        Success = true,
+                        InvoiceId = invoiceId,
+                        PaymentUrl = paymentResult.PaymentUrl,
+                        RequiresPayment = true
+                    };
                 }
             }
-
-            // XÓA GIỎ HÀNG NGAY SAU KHI TẠO HÓA ĐƠN THÀNH CÔNG
-            await _cartService.ClearCartAsync();
-
-            // 6. XỬ LÝ THEO PHƯƠNG THỨC THANH TOÁN
-            if (req.PaymentMethod == "COD")
+            catch (Exception)
             {
-                var shipment = await _shippingService.CreateShipmentAsync(invoiceId, total);
+                throw;
+            }
+        }
+
+        // ✅ METHOD MỚI: Xử lý khi thanh toán thành công
+        private async Task ProcessPaidInvoiceAsync(long invoiceId, decimal total, bool isCOD)
+        {
+            try
+            {
+                // 1. ALLOCATE (trừ kho thật)
+                var details = await _detailRepo.GetByInvoiceIdAsync(invoiceId);
+                
+                foreach (var detail in details)
+                {
+                    var batchId = await _allocationService.AllocateFromBatchAsync(
+                        productId: detail.ProductId,
+                        variantSlug: detail.VariantSlug,
+                        quantity: detail.Quantity,
+                        invoiceDetailId: detail.Id
+                    );
+
+                    if (batchId <= 0)
+                    {
+                        throw new BusinessRuleException("Không đủ hàng trong kho (lô)");
+                    }
+
+                    await _detailRepo.UpdateShipmentBatchIdAsync(detail.Id, batchId);
+                }
+
+                // 2. CONFIRM RESERVATION
+                await _stockService.ConfirmStockReservationAsync(invoiceId);
+
+                // 3. TẠO VẬN ĐƠN
+                var shipment = await _shippingService.CreateShipmentAsync(invoiceId, isCOD ? total : 0, isCOD);
                 if (!shipment.Success || string.IsNullOrEmpty(shipment.TrackingNumber))
                 {
-                    await RollbackAsync(orderId, invoiceId);
-                    return Fail("Tạo vận đơn thất bại");
+                    throw new BusinessRuleException("Tạo vận đơn thất bại");
                 }
 
-                await FinalizeSuccessAsync(orderId, invoiceId, shipment.TrackingNumber);
-                return Success(invoiceId, null, shipment.TrackingNumber);
+                // 4. UPDATE INVOICE → PAID
+                await _invoiceRepo.UpdateTrackingCodeAsync(invoiceId, shipment.TrackingNumber);
+                await _invoiceRepo.UpdateInvoiceStatusAsync(invoiceId, (int)InvoiceStatus.Paid);
+
+                Console.WriteLine("Tạo vận đơn thành công: Invoice {0}, Tracking {1}",
+                    invoiceId, shipment.TrackingNumber);
             }
-            else // VNPAY
+            catch (Exception ex)
             {
-                var ip = _httpContext.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
-                var paymentResult = await _vnpayService.CreatePaymentUrlAsync(invoiceId, total, ip);
-
-                if (!paymentResult.IsValid)
-                {
-                    await RollbackAsync(orderId, invoiceId);
-                    return Fail(paymentResult.ErrorMessage ?? "Tạo link thanh toán thất bại");
-                }
-
-                return new CheckoutResult
-                {
-                    Success = true,
-                    InvoiceId = invoiceId,
-                    PaymentUrl = paymentResult.PaymentUrl,
-                    RequiresPayment = true
-                };
+                Console.WriteLine(ex);
+                
+                // Rollback nếu allocate/tạo vận đơn thất bại
+                await RollbackAsync(invoiceId);
+                throw;
             }
         }
 
@@ -186,43 +216,23 @@ namespace Backend.Service.Checkout
             var invoice = await _invoiceRepo.GetInvoiceByIdAsync(invoiceId, includeDetails: false, includePayment: true);
             if (invoice == null || invoice.Status != (int)InvoiceStatus.Pending) return;
 
-            var orderId = invoice.TrackingCode;
-
-            var shipment = await _shippingService.CreateShipmentAsync(invoiceId, 0);
-            if (!shipment.Success || string.IsNullOrEmpty(shipment.TrackingNumber))
-            {
-                await _invoiceRepo.UpdateInvoiceStatusAsync(invoiceId, (int)InvoiceStatus.PaymentFailed);
-                await _stockService.ReleaseStockAsync(orderId);
-                return;
-            }
-
-            // CHỈ XÁC NHẬN STOCK VÀ CẬP NHẬT TRẠNG THÁI
-            await _stockService.ConfirmStockReservationAsync(orderId);
-            await _invoiceRepo.UpdateInvoiceStatusAsync(invoiceId, (int)InvoiceStatus.Paid);
-
-            // SỬA: DÙNG UpdateInvoiceStatusAsync ĐỂ CẬP NHẬT TrackingCode
-            await _invoiceRepo.UpdateTrackingCodeAsync(invoiceId, shipment.TrackingNumber);
+            // ✅ VNPAY thành công → Allocate + Tạo vận đơn
+            await ProcessPaidInvoiceAsync(invoiceId, invoice.TotalAmount, isCOD: false);
         }
 
-        private async Task FinalizeSuccessAsync(string orderId, long invoiceId, string trackingNumber)
+        // ✅ Rollback - CHỈ release reservation (chưa allocate thì không cần release batch)
+        private async Task RollbackAsync(long invoiceId)
         {
-            await _stockService.ConfirmStockReservationAsync(orderId);
-            await _invoiceRepo.UpdateInvoiceStatusAsync(invoiceId, (int)InvoiceStatus.Paid);
-            await _invoiceRepo.UpdateTrackingCodeAsync(invoiceId, trackingNumber);
-        }
+            // 1. Giải phóng reservation (cộng lại Variant.Stock)
+            await _stockService.ReleaseStockAsync(invoiceId);
 
-        private async Task RollbackAsync(string orderId, long invoiceId)
-        {
-            await _stockService.ReleaseStockAsync(orderId);
-
+            // 2. Giải phóng batch (NẾU đã allocate)
             var details = await _detailRepo.GetByInvoiceIdAsync(invoiceId);
-            foreach (var d in details)
+            foreach (var d in details.Where(d => d.ShipmentBatchId.HasValue))
                 await _allocationService.ReleaseFromBatchAsync(d.Id);
 
+            // 3. Xóa details + cancel
             await _detailRepo.DeleteByInvoiceIdAsync(invoiceId);
-
-            // SỬA: DÙNG UpdateInvoiceStatusAsync ĐỂ XÓA (hoặc tạo phương thức Delete riêng)
-            // Ở đây dùng UpdateInvoiceStatusAsync để đánh dấu Cancelled
             await _invoiceRepo.UpdateInvoiceStatusAsync(invoiceId, (int)InvoiceStatus.Cancelled);
         }
 
@@ -244,7 +254,6 @@ namespace Backend.Service.Checkout
         };
     }
 
-    // === DTO & ENUM ===
     public class CheckoutRequest
     {
         public string PaymentMethod { get; set; } = "COD";

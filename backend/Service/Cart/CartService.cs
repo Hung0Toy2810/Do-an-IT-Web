@@ -91,38 +91,25 @@ namespace Backend.Service.Cart
 
         public async Task<CartOperationResultDto> UpdateCartItemAsync(long cartId, UpdateCartItemRequestDto req)
         {
-            if (req.Quantity <= 0)
-                return new CartOperationResultDto { Success = false, Message = "Số lượng phải lớn hơn 0" };
+            // Cho phép Quantity = 0 (sẽ xóa item)
+            if (req.Quantity < 0)
+                return new CartOperationResultDto { Success = false, Message = "Số lượng không được âm" };
 
             var customerId = CurrentCustomerId;
             var cartItem = await _cartRepository.GetCartItemByIdAsync(cartId, customerId);
             if (cartItem == null)
                 return new CartOperationResultDto { Success = false, Message = "Không tìm thấy mục trong giỏ" };
 
-            var product = await _productService.GetProductDetailByIdAsync(cartItem.ProductId);
-            if (product == null)
-                return new CartOperationResultDto { Success = false, Message = "Sản phẩm không tồn tại" };
+            // Nếu người dùng đặt về 0 → sẽ xóa luôn trong repository
+            cartItem.Quantity = req.Quantity;
 
-            var variant = FindVariant(product, cartItem.VariantSlug);
-            if (variant == null)
-                return new CartOperationResultDto { Success = false, Message = "Biến thể không tồn tại" };
-
-            var finalQty = req.Quantity;
-            var message = string.Empty;
-
-            if (finalQty > variant.Stock)
-            {
-                finalQty = variant.Stock;
-                message = $"Số lượng đã giảm còn {variant.Stock} do hết hàng.";
-            }
-
-            cartItem.Quantity = finalQty;
+            // Gọi AddOrUpdateCartItemAsync → nó sẽ tự xử lý xóa nếu Quantity = 0
             await _cartRepository.AddOrUpdateCartItemAsync(cartItem);
 
             return new CartOperationResultDto
             {
                 Success = true,
-                Message = message
+                Message = req.Quantity == 0 ? "Đã xóa sản phẩm khỏi giỏ hàng" : "Cập nhật số lượng thành công"
             };
         }
 

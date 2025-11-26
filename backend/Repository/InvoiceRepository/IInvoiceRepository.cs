@@ -16,5 +16,6 @@ namespace Backend.Repository.InvoiceRepository
         Task<bool> UpdateVNPayPaymentAsync(VNPayPayment payment);
         Task<Invoice?> GetInvoiceByTrackingCodeAsync(string trackingCode);
         Task<bool> UpdateTrackingCodeAsync(long invoiceId, string trackingCode);
+        Task<List<Invoice>> GetInvoicesByStatusAsync(int status);
     }
 }

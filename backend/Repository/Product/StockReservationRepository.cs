@@ -8,14 +8,17 @@ namespace Backend.Repository.Product
 {
     public class StockReservation
     {
-        [BsonId] // Bắt buộc, nói với driver đây là _id
+        [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string? MongoId { get; set; } // MongoId sẽ map với _id
+        public string? MongoId { get; set; }
 
         public long ProductId { get; set; }
         public string VariantSlug { get; set; } = string.Empty;
         public int ReservedQuantity { get; set; }
-        public string OrderId { get; set; } = string.Empty;
+        
+        public long InvoiceDetailId { get; set; }
+        public long InvoiceId { get; set; }
+        
         public DateTime ReservedAt { get; set; }
         public DateTime ExpiresAt { get; set; }
         public string Status { get; set; } = "Reserved";
@@ -24,11 +27,11 @@ namespace Backend.Repository.Product
     public interface IStockReservationRepository
     {
         Task<StockReservation> CreateAsync(StockReservation reservation);
-        Task<StockReservation?> GetByOrderIdAsync(string orderId);
-        Task<bool> UpdateStatusAsync(string orderId, string status);
+        Task<StockReservation?> GetByDetailIdAsync(long invoiceDetailId); // 
+        Task<List<StockReservation>> GetByInvoiceIdAsync(long invoiceId); // 
+        Task<bool> UpdateStatusByDetailIdAsync(long invoiceDetailId, string status); // 
         Task<List<StockReservation>> GetExpiredReservationsAsync();
-        Task<bool> DeleteAsync(string orderId);
-
+        Task<bool> DeleteByDetailIdAsync(long invoiceDetailId); // 
         Task<List<StockReservation>> GetActiveReservationsByProductIdAsync(long productId);
     }
 
@@ -47,12 +50,25 @@ namespace Backend.Repository.Product
         {
             var indexModels = new[]
             {
+                //  Index theo InvoiceDetailId (UNIQUE)
                 new CreateIndexModel<StockReservation>(
-                    Builders<StockReservation>.IndexKeys.Ascending(x => x.OrderId),
+                    Builders<StockReservation>.IndexKeys.Ascending(x => x.InvoiceDetailId),
                     new CreateIndexOptions { Unique = true }
                 ),
+                //  Index theo InvoiceId (để query tất cả details của 1 invoice)
+                new CreateIndexModel<StockReservation>(
+                    Builders<StockReservation>.IndexKeys.Ascending(x => x.InvoiceId)
+                ),
+                // Index để tìm expired
                 new CreateIndexModel<StockReservation>(
                     Builders<StockReservation>.IndexKeys.Ascending(x => x.ExpiresAt)
+                ),
+                // Index để tính available stock
+                new CreateIndexModel<StockReservation>(
+                    Builders<StockReservation>.IndexKeys
+                        .Ascending(x => x.ProductId)
+                        .Ascending(x => x.Status)
+                        .Ascending(x => x.ExpiresAt)
                 )
             };
             _collection.Indexes.CreateManyAsync(indexModels);
@@ -64,15 +80,20 @@ namespace Backend.Repository.Product
             return reservation;
         }
 
-        public async Task<StockReservation?> GetByOrderIdAsync(string orderId)
+        public async Task<StockReservation?> GetByDetailIdAsync(long invoiceDetailId)
         {
-            return await _collection.Find(x => x.OrderId == orderId).FirstOrDefaultAsync();
+            return await _collection.Find(x => x.InvoiceDetailId == invoiceDetailId).FirstOrDefaultAsync();
         }
 
-        public async Task<bool> UpdateStatusAsync(string orderId, string status)
+        public async Task<List<StockReservation>> GetByInvoiceIdAsync(long invoiceId)
+        {
+            return await _collection.Find(x => x.InvoiceId == invoiceId).ToListAsync();
+        }
+
+        public async Task<bool> UpdateStatusByDetailIdAsync(long invoiceDetailId, string status)
         {
             var update = Builders<StockReservation>.Update.Set(x => x.Status, status);
-            var result = await _collection.UpdateOneAsync(x => x.OrderId == orderId, update);
+            var result = await _collection.UpdateOneAsync(x => x.InvoiceDetailId == invoiceDetailId, update);
             return result.ModifiedCount > 0;
         }
 
@@ -83,9 +104,9 @@ namespace Backend.Repository.Product
                 .ToListAsync();
         }
 
-        public async Task<bool> DeleteAsync(string orderId)
+        public async Task<bool> DeleteByDetailIdAsync(long invoiceDetailId)
         {
-            var result = await _collection.DeleteOneAsync(x => x.OrderId == orderId);
+            var result = await _collection.DeleteOneAsync(x => x.InvoiceDetailId == invoiceDetailId);
             return result.DeletedCount > 0;
         }
 

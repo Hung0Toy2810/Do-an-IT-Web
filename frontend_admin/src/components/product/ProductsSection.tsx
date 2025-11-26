@@ -26,57 +26,57 @@ export const ProductsSection = ({
   onPriceSortChange,
   onAddProduct,
 }: ProductsSectionProps) => {
+  // 1. Lấy danh sách ID + totalCount từ API subcategory
+  const { data: listResponse, isLoading: listLoading } = useQuery({
+    queryKey: ['products-by-subcategory-ids', selectedSub?.slug, selectedBrand, priceSort],
+    queryFn: async () => {
+      if (!selectedSub) return null;
 
-  // Tạo keyword: slug danh mục (nếu có)
-  const keyword = selectedSub?.slug || '';
-
-  // TÌM KIẾM TẤT CẢ SẢN PHẨM (kể cả ngừng kinh doanh)
-  const { data: searchAllResponse, isLoading: searchLoading } = useQuery({
-    queryKey: ['products-search-all', keyword, selectedBrand, priceSort],
-    queryFn: () => {
-      if (!selectedSub) return { data: { productIds: [], totalCount: 0 } };
-      return api.searchAll({
-        keyword: keyword, // backend sẽ nhận diện slug
+      return api.getProductsBySubCategory(selectedSub.slug, {
         brand: selectedBrand || undefined,
-        sortByPriceAscending: priceSort === 'asc',
+        sortByPriceAscending:
+          priceSort === 'asc' ? true : priceSort === 'desc' ? false : undefined,
       });
     },
     enabled: !!selectedSub,
   });
 
-  const productIds: number[] = searchAllResponse?.data?.productIds || [];
-  const totalCount = searchAllResponse?.data?.totalCount || 0;
+  const productIds: number[] = listResponse?.data?.productIds || [];
+  const totalCount = listResponse?.data?.totalCount || 0;
 
-  // LẤY DANH SÁCH BRANDS (vẫn dùng API cũ để filter)
+  // 2. Lấy danh sách brands (vẫn dùng API cũ)
   const { data: brandsResponse } = useQuery({
     queryKey: ['brands', selectedSub?.slug],
-    queryFn: () => {
-      if (!selectedSub) return { data: { brands: [] as string[] } };
-      return api.getBrandsBySubCategory(selectedSub.slug);
-    },
+    queryFn: () => api.getBrandsBySubCategory(selectedSub!.slug),
     enabled: !!selectedSub,
+    select: (res) => res?.data?.brands || [],
   });
 
-  const brands: string[] = brandsResponse?.data?.brands || [];
+  const brands: string[] = brandsResponse || [];
 
-  // LẤY CHI TIẾT SẢN PHẨM
+  // 3. Lấy chi tiết từng sản phẩm theo ID
   const { data: productCards = [], isLoading: cardsLoading } = useQuery<ProductCardDto[]>({
     queryKey: ['product-cards', productIds],
     queryFn: async () => {
       if (productIds.length === 0) return [];
-      const cards = await Promise.all(
-        productIds.map(id =>
-          api.getProductCard(id)
-            .then(res => res.data as ProductCardDto)
-            .catch(() => null)
+
+      const results = await Promise.all(
+        productIds.map((id) =>
+          api
+            .getProductCard(id)
+            .then((res) => res.data as ProductCardDto)
+            .catch((err) => {
+              console.warn(`Lỗi lấy sản phẩm ID ${id}:`, err);
+              return null;
+            })
         )
       );
-      return cards.filter((card): card is ProductCardDto => card !== null);
+
+      return results.filter((card): card is ProductCardDto => card !== null);
     },
     enabled: productIds.length > 0,
+    staleTime: 1000 * 60, // cache 1 phút
   });
-
-  // ... handleDelete giữ nguyên ...
 
   if (!selectedSub) {
     return (
@@ -87,19 +87,21 @@ export const ProductsSection = ({
     );
   }
 
+  const isLoading = listLoading || cardsLoading;
+
   return (
     <div className="lg:col-span-2">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900">Sản phẩm</h3>
         <button
           onClick={onAddProduct}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg bg-gradient-to-r from-violet-600 to-violet-700 hover:shadow-lg"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-shadow rounded-lg bg-gradient-to-r from-violet-600 to-violet-700 hover:shadow-lg"
         >
-          <Plus className="w-4 h-4" /> Thêm sản phẩm
+          <Plus className="w-4 h-4" />
+          Thêm sản phẩm
         </button>
       </div>
 
-      {/* VẪN DÙNG ProductFilters ĐỂ LỌC BRAND + SORT */}
       <ProductFilters
         brands={brands}
         selectedBrand={selectedBrand}
@@ -108,29 +110,42 @@ export const ProductsSection = ({
         onPriceSortChange={onPriceSortChange}
       />
 
-      {searchLoading || cardsLoading ? (
+      {isLoading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-violet-600" />
+          <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
         </div>
       ) : productCards.length > 0 ? (
         <>
           <div className="mb-3 text-sm text-gray-600">
             Tìm thấy <strong>{totalCount}</strong> sản phẩm
-            {productCards.length < totalCount && ` (hiển thị ${productCards.length})`}
+            {productCards.length < totalCount && (
+              <span className="text-orange-600">
+                {' '}
+                (đang hiển thị {productCards.length})
+              </span>
+            )}
           </div>
 
-          <div className="overflow-x-auto border rounded-lg">
+          <div className="overflow-x-auto border rounded-lg shadow-sm">
             <table className="w-full">
               <thead className="border-b bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-xs font-medium text-left text-gray-500 uppercase">ID</th>
-                  <th className="px-4 py-3 text-xs font-medium text-left text-gray-500 uppercase">Sản phẩm</th>
-                  <th className="px-4 py-3 text-xs font-medium text-left text-gray-500 uppercase">Trạng thái</th>
-                  <th className="px-4 py-3 text-xs font-medium text-left text-gray-500 uppercase">Hành động</th>
+                  <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                    ID
+                  </th>
+                  <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                    Sản phẩm
+                  </th>
+                  <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                    Trạng thái
+                  </th>
+                  <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
+                    Hành động
+                  </th>
                 </tr>
               </thead>
-              <tbody>
-                {productCards.map(product => (
+              <tbody className="divide-y divide-gray-200">
+                {productCards.map((product) => (
                   <ProductTableRow
                     key={product.id}
                     product={product}
@@ -147,7 +162,9 @@ export const ProductsSection = ({
           <Package className="w-16 h-16 mx-auto mb-4 text-gray-400" />
           <p className="font-medium text-gray-600">Không tìm thấy sản phẩm</p>
           <p className="mt-2 text-sm text-gray-500">
-            {selectedBrand || priceSort ? 'Thử điều chỉnh bộ lọc' : 'Thêm sản phẩm đầu tiên'}
+            {selectedBrand || priceSort
+              ? 'Thử điều chỉnh bộ lọc thương hiệu hoặc giá'
+              : 'Hãy thêm sản phẩm đầu tiên cho danh mục này'}
           </p>
         </div>
       )}

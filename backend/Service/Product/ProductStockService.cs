@@ -9,9 +9,9 @@ namespace Backend.Service.Product
         Task<bool> IncreaseStockAsync(string productSlug, string variantSlug, int quantity);
         Task<bool> DecreaseStockAsync(string productSlug, string variantSlug, int quantity);
         Task<bool> SetStockAsync(string productSlug, string variantSlug, int stock);
-        Task<bool> ReserveStockAsync(string productSlug, string variantSlug, int quantity, string orderId, int expirationMinutes = 15);
-        Task<bool> ReleaseStockAsync(string orderId);
-        Task<bool> ConfirmStockReservationAsync(string orderId);
+        Task<bool> ReserveStockAsync(string productSlug, string variantSlug, int quantity, long invoiceId, long invoiceDetailId, int expirationMinutes = 20);
+        Task<bool> ConfirmStockReservationAsync(long invoiceId);
+        Task<bool> ReleaseStockAsync(long invoiceId);
         Task<Dictionary<string, int>> GetAvailableStockByVariantsAsync(string productSlug);
         Task<BulkOperationResultDto> BulkUpdateStockAsync(List<BulkStockUpdateDto> updates);
     }
@@ -83,23 +83,31 @@ namespace Backend.Service.Product
             return await _productRepository.UpdateAsync(product);
         }
 
-        public async Task<bool> ReserveStockAsync(string productSlug, string variantSlug, int quantity, string orderId, int expirationMinutes = 10)
+        // ✅ ReserveStockAsync - Nhận invoiceDetailId
+        // Reserve - Trừ kho khả dụng
+        public async Task<bool> ReserveStockAsync(
+            string productSlug, 
+            string variantSlug, 
+            int quantity, 
+            long invoiceId,
+            long invoiceDetailId,
+            int expirationMinutes = 20)
         {
             if (quantity <= 0) throw new ArgumentException("Số lượng phải > 0", nameof(quantity));
 
             var product = await _productRepository.GetBySlugAsync(productSlug);
             if (product == null)
-                throw new Backend.Exceptions.NotFoundException($"Không tìm thấy sản phẩm '{productSlug}'");
+                throw new NotFoundException($"Không tìm thấy sản phẩm '{productSlug}'");
 
             var variant = product.Variants.FirstOrDefault(v => v.Slug == variantSlug);
             if (variant == null)
-                throw new Backend.Exceptions.NotFoundException($"Không tìm thấy biến thể '{variantSlug}'");
+                throw new NotFoundException($"Không tìm thấy biến thể '{variantSlug}'");
 
             var availableDict = await GetAvailableStockByVariantsAsync(productSlug);
             var available = availableDict.GetValueOrDefault(variantSlug, 0);
 
             if (available < quantity)
-                throw new Backend.Exceptions.BusinessRuleException(
+                throw new BusinessRuleException(
                     $"Không đủ hàng khả dụng. Còn: {available}, Yêu cầu: {quantity}");
 
             var reservation = new StockReservation
@@ -107,39 +115,65 @@ namespace Backend.Service.Product
                 ProductId = product.Id,
                 VariantSlug = variantSlug,
                 ReservedQuantity = quantity,
-                OrderId = orderId,
+                InvoiceId = invoiceId,
+                InvoiceDetailId = invoiceDetailId,
                 ReservedAt = DateTime.UtcNow,
                 ExpiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes),
                 Status = "Reserved"
             };
 
             await _reservationRepository.CreateAsync(reservation);
+            
+            // ✅ TRỪ KHO KHẢ DỤNG
             variant.Stock -= quantity;
-
+            
             return await _productRepository.UpdateAsync(product);
         }
 
-        public async Task<bool> ReleaseStockAsync(string orderId)
+        // Confirm - Chỉ update status
+        public async Task<bool> ConfirmStockReservationAsync(long invoiceId)
         {
-            var reservation = await _reservationRepository.GetByOrderIdAsync(orderId);
-            if (reservation == null) return false;
-
-            var product = await _productRepository.GetByIdAsync(reservation.ProductId);
-            if (product == null) return false;
-
-            var variant = product.Variants.FirstOrDefault(v => v.Slug == reservation.VariantSlug);
-            if (variant == null) return false;
-
-            variant.Stock += reservation.ReservedQuantity;
-            await _productRepository.UpdateAsync(product);
-            await _reservationRepository.UpdateStatusAsync(orderId, "Released");
+            var reservations = await _reservationRepository.GetByInvoiceIdAsync(invoiceId);
+            
+            foreach (var reservation in reservations)
+            {
+                await _reservationRepository.UpdateStatusByDetailIdAsync(reservation.InvoiceDetailId, "Confirmed");
+            }
+            
             return true;
         }
 
-        public async Task<bool> ConfirmStockReservationAsync(string orderId)
+        // Release - Cộng lại kho khả dụng
+        public async Task<bool> ReleaseStockAsync(long invoiceId)
         {
-            return await _reservationRepository.UpdateStatusAsync(orderId, "Confirmed");
+            var reservations = await _reservationRepository.GetByInvoiceIdAsync(invoiceId);
+            
+            if (reservations == null || !reservations.Any())
+                return false;
+            
+            foreach (var reservation in reservations)
+            {
+                if (reservation.Status == "Released" || reservation.Status == "Confirmed")
+                    continue;
+                
+                var product = await _productRepository.GetByIdAsync(reservation.ProductId);
+                if (product != null)
+                {
+                    var variant = product.Variants.FirstOrDefault(v => v.Slug == reservation.VariantSlug);
+                    if (variant != null)
+                    {
+                        variant.Stock += reservation.ReservedQuantity;
+                        await _productRepository.UpdateAsync(product);
+                    }
+                }
+                
+                await _reservationRepository.UpdateStatusByDetailIdAsync(reservation.InvoiceDetailId, "Released");
+            }
+            
+            return true;
         }
+
+
 
         public async Task<Dictionary<string, int>> GetAvailableStockByVariantsAsync(string productSlug)
         {

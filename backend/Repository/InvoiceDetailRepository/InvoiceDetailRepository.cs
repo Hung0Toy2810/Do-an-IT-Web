@@ -61,5 +61,12 @@ namespace Backend.Repository.InvoiceDetailRepository
                 await _context.SaveChangesAsync();
             }
         }
+
+        public async Task<List<Invoice>> GetInvoicesByStatusAsync(int status)
+        {
+            return await _context.Invoices
+                .Where(i => i.Status == status)
+                .ToListAsync();
+        }
     }
 }

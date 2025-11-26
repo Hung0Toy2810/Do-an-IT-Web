@@ -320,8 +320,8 @@ const SubCategoryPage: React.FC = () => {
                       slug: product.slug,
                       name: product.name,
                       image: product.firstImage || '/placeholder.svg',
-                      originalPrice: product.originalPriceOfMinVariant * 1000,
-                      discountedPrice: product.minDiscountedPrice * 1000,
+                      originalPrice: product.originalPriceOfMinVariant,
+                      discountedPrice: product.minDiscountedPrice,
                       discountPercentage:
                         product.minDiscountedPrice < product.originalPriceOfMinVariant
                           ? Math.round(

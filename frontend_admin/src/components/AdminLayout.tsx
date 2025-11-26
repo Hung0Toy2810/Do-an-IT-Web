@@ -136,19 +136,21 @@ export default function AdminLayout() {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50">
-      {/* Mobile Menu Button */}
-      <button
-        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        className="fixed z-50 p-3 text-white transition-all shadow-lg top-4 left-4 lg:hidden bg-gradient-to-br from-violet-600 to-violet-800 hover:shadow-xl"
-        style={{ borderRadius: '12px' }}
-      >
-        {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-      </button>
+      {/* Mobile Menu Header */}
+      <div className="fixed top-0 left-0 right-0 z-40 flex items-center justify-end w-full px-4 py-3 bg-white border-b shadow-md lg:hidden border-violet-100">
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="p-3 text-white transition-all shadow-lg bg-gradient-to-br from-violet-600 to-violet-800 hover:shadow-xl"
+          style={{ borderRadius: '12px' }}
+        >
+          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
+      </div>
 
       {/* Sidebar */}
       <aside
         className={`
-          fixed lg:static inset-y-0 left-0 z-40
+          fixed lg:static inset-y-0 left-0 z-50
           ${sidebarCollapsed ? 'lg:w-20' : 'lg:w-72'}
           ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           w-72 bg-white border-r border-violet-100 shadow-xl
@@ -243,13 +245,13 @@ export default function AdminLayout() {
       {mobileMenuOpen && (
         <div
           onClick={() => setMobileMenuOpen(false)}
-          className="fixed inset-0 z-30 bg-black/30 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/30 lg:hidden"
         />
       )}
 
       {/* Main Content */}
-      <main className="flex-1 p-4 lg:p-8">
-        <div className="mx-auto max-w-7xl">
+      <main className="flex-1 w-full p-4 pt-24 lg:p-8 lg:pt-8">
+        <div className="w-full mx-auto max-w-7xl">
           <Outlet />
         </div>
       </main>

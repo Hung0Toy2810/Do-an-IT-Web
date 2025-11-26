@@ -16,6 +16,7 @@ namespace Backend.Repository
         Task<List<ShipmentBatch>> GetAvailableBatchesByProductAndVariantAsync(long productId, string variantSlug);
         Task UpdateAsync(ShipmentBatch batch);
         Task<string> GenerateBatchCodeAsync(string prefix = "NHAP");
+        Task<List<ShipmentBatch>> GetAllBatchesByProductAndVariantAsync(long productId, string variantSlug);
     }
 
     public class ShipmentBatchRepository : IShipmentBatchRepository
@@ -45,7 +46,7 @@ namespace Backend.Repository
         {
             return await _dbContext.ShipmentBatches
                 .Where(b => b.ProductId == productId && b.VariantSlug == variantSlug && b.RemainingQuantity > 0)
-                .OrderBy(b => b.ImportedAt) // FIFO: nhập trước xuất trước
+                .OrderBy(b => b.ImportedAt)
                 .ToListAsync();
         }
 
@@ -61,6 +62,14 @@ namespace Backend.Repository
             var count = await _dbContext.ShipmentBatches
                 .CountAsync(b => b.BatchCode.StartsWith($"{prefix}{today}-")) + 1;
             return $"{prefix}{today}-{count:D3}";
+        }
+
+        public async Task<List<ShipmentBatch>> GetAllBatchesByProductAndVariantAsync(long productId, string variantSlug)
+        {
+            return await _dbContext.ShipmentBatches
+                .Where(b => b.ProductId == productId && b.VariantSlug == variantSlug)
+                .OrderBy(b => b.ImportedAt)
+                .ToListAsync();
         }
     }
 }

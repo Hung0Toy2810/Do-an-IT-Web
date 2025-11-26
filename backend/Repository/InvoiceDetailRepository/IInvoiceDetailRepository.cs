@@ -11,5 +11,6 @@ namespace Backend.Repository.InvoiceDetailRepository
         Task<InvoiceDetail?> GetByIdAsync(long detailId);
         Task<bool> UpdateShipmentBatchIdAsync(long detailId, long shipmentBatchId);
         Task DeleteByInvoiceIdAsync(long invoiceId);
+        Task<List<Invoice>> GetInvoicesByStatusAsync(int status);
     }
 }

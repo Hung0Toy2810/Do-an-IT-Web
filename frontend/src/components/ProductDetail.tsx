@@ -1,7 +1,9 @@
 // src/pages/ProductDetail.tsx
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { getCookie } from '../utils/cookies';
 import { notify } from '../components/NotificationProvider';
+import { isTokenValid } from '../utils/auth';
 
 import ProductGallery from '../components/product/ProductGallery';
 import ProductInfo from '../components/product/ProductInfo';
@@ -9,6 +11,45 @@ import ProductVariants from '../components/product/ProductVariants';
 import ProductActions from '../components/product/ProductActions';
 import ProductReviews from '../components/product/ProductReviews';
 import ProductSpecifications from '../components/product/ProductSpecifications';
+
+const API_BASE = 'http://localhost:5067';
+
+const addToCart = async (
+  productId: number,
+  variantSlug: string,
+  quantity: number
+): Promise<{ success: boolean; message: string }> => {
+  const token = getCookie('auth_token');
+  if (!token || !isTokenValid()) {
+    return { success: false, message: 'Vui lòng đăng nhập để thêm vào giỏ hàng' };
+  }
+
+  try {
+    console.log('Calling POST /api/cart:', { productId, variantSlug, quantity });
+
+    const response = await fetch(`${API_BASE}/api/cart`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ productId, variantSlug, quantity }),
+    });
+
+    const result = await response.json();
+    console.log('API Response:', response.status, result);
+
+    const message = result.message || 'Lỗi không xác định';
+
+    return {
+      success: response.ok,
+      message,
+    };
+  } catch (error) {
+    console.error('Add to cart error:', error);
+    return { success: false, message: 'Lỗi kết nối đến server' };
+  }
+};
 
 export default function ProductDetail() {
   const { slug } = useParams();
@@ -18,25 +59,28 @@ export default function ProductDetail() {
   const [selectedAttrs, setSelectedAttrs] = useState<{ [k: string]: string }>({});
   const [quantity, setQuantity] = useState(1);
   const [isLiked, setIsLiked] = useState(false);
+  const [addingToCart, setAddingToCart] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
       if (!slug) return;
       try {
-        const res = await fetch(`http://localhost:5067/api/products/slug/${slug}`);
+        const res = await fetch(`${API_BASE}/api/products/slug/${slug}`);
         const json = await res.json();
         if (res.ok && json.data) {
           const p = json.data;
           setProduct(p);
           const init: any = {};
-          Object.entries(p.attributeOptions).forEach(([k, v]) => init[k] = (v as string[])[0]);
+          Object.entries(p.attributeOptions).forEach(([k, v]) => {
+            init[k] = (v as string[])[0];
+          });
           setSelectedAttrs(init);
         } else {
-          notify('error', 'Không tìm thấy sản phẩm');
+          notify('error', json.message || 'Không tìm thấy sản phẩm');
           navigate('/');
         }
       } catch {
-        notify('error', 'Lỗi kết nối');
+        notify('error', 'Lỗi kết nối đến server');
         navigate('/');
       } finally {
         setLoading(false);
@@ -61,12 +105,33 @@ export default function ProductDetail() {
     original: variant.originalPrice,
     discounted: variant.discountedPrice,
     discountPercentage: variant.discountedPrice
-      ? ((1 - variant.discountedPrice / variant.originalPrice) * 100)
+      ? Math.round((1 - variant.discountedPrice / variant.originalPrice) * 100)
       : 0,
   };
 
   const stock = variant.stock;
   const canAdd = stock > 0 && quantity <= stock;
+
+  const handleAddToCart = async () => {
+    if (!canAdd || addingToCart) return;
+    setAddingToCart(true);
+    const { success, message } = await addToCart(product.id, variant.slug, quantity);
+    setAddingToCart(false);
+    success ? notify('success', message) : notify('error', message);
+  };
+
+  const handleBuyNow = async () => {
+    if (!canAdd || addingToCart) return;
+    setAddingToCart(true);
+    const { success, message } = await addToCart(product.id, variant.slug, quantity);
+    setAddingToCart(false);
+    if (success) {
+      notify('success', message);
+      navigate('/cart', { replace: true });
+    } else {
+      notify('error', message);
+    }
+  };
 
   return (
     <div className="container px-4 py-6 mx-auto max-w-7xl sm:py-8">
@@ -94,22 +159,24 @@ export default function ProductDetail() {
             attributeOptions={product.attributeOptions}
             selected={selectedAttrs}
             onChange={(k, v) => {
-              setSelectedAttrs(prev => ({ ...prev, [k]: v }));
+              setSelectedAttrs((prev) => ({ ...prev, [k]: v }));
               setQuantity(1);
             }}
           />
 
+          {/* ĐÃ SỬA: onBuyNow được truyền đúng */}
           <ProductActions
             price={price}
             stock={stock}
             quantity={quantity}
             canAdd={canAdd}
-            onQuantityChange={d => {
+            adding={addingToCart}
+            onQuantityChange={(d) => {
               const n = quantity + d;
               if (n >= 1 && n <= stock) setQuantity(n);
             }}
-            onAddToCart={() => notify('success', `Đã thêm ${quantity} sản phẩm`)}
-            onBuyNow={() => notify('info', 'Chuyển đến thanh toán...')}
+            onAddToCart={handleAddToCart}
+            onBuyNow={handleBuyNow}
           />
         </div>
       </div>
