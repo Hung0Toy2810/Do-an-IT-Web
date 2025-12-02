@@ -239,7 +239,7 @@ namespace Backend.Repository.Product
             var filters = new List<FilterDefinition<ProductDocument>>
             {
                 filterBuilder.In(x => x.Id, productIds)
-                // Không có: Eq(x => x.IsDiscontinued, false)
+                // ✅ BỎ: filterBuilder.Eq(x => x.IsDiscontinued, false)
             };
 
             if (!string.IsNullOrWhiteSpace(brand))

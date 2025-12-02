@@ -162,6 +162,7 @@ namespace Backend.Model.dto.Product
     public class ProductSearchAllRequestDto
     {
         public string? Keyword { get; set; }
+        public string? SubCategorySlug { get; set; }
         public string? Brand { get; set; }
         public decimal? MinPrice { get; set; }
         public decimal? MaxPrice { get; set; }

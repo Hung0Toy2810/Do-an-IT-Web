@@ -141,7 +141,7 @@ export const api = {
   getProductCardBySlug: (slug: string) =>
     authFetch(`${API_BASE}/api/products/card/slug/${slug}`),
 
-  // Lấy sản phẩm theo sub-category (GIỮ NGUYÊN)
+  // Lấy sản phẩm theo sub-category
   getProductsBySubCategory: (slug: string, params?: {
     brand?: string;
     minPrice?: number;
@@ -158,11 +158,11 @@ export const api = {
     return authFetch(`${API_BASE}/api/products/subcategory/${slug}${queryString ? `?${queryString}` : ''}`);
   },
 
-  // Lấy brands theo sub-category (GIỮ NGUYÊN)
+  // Lấy brands theo sub-category
   getBrandsBySubCategory: (slug: string) =>
     authFetch(`${API_BASE}/api/products/subcategory/${slug}/brands`),
 
-  // TÌM KIẾM SẢN PHẨM (cũ)
+  // TÌM KIẾM SẢN PHẨM
   searchProducts: (params: {
     keyword: string;
     sortByPriceAscending?: boolean;
@@ -195,9 +195,10 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  // === MỚI: TÌM KIẾM TẤT CẢ SẢN PHẨM (KỂ CẢ NGỪNG KINH DOANH) ===
+  // TÌM KIẾM TẤT CẢ SẢN PHẨM (KỂ CẢ NGỪNG KINH DOANH) - DÀNH CHO ADMIN
   searchAll: (params: {
-    keyword?: string;           // Có thể chứa slug danh mục hoặc tên sản phẩm
+    keyword?: string;
+    subCategorySlug?: string;
     brand?: string;
     minPrice?: number;
     maxPrice?: number;
@@ -206,6 +207,7 @@ export const api = {
     const queryParams = new URLSearchParams();
     
     if (params.keyword) queryParams.append('Keyword', params.keyword);
+    if (params.subCategorySlug) queryParams.append('SubCategorySlug', params.subCategorySlug);
     if (params.brand) queryParams.append('Brand', params.brand);
     if (params.minPrice !== undefined) queryParams.append('MinPrice', params.minPrice.toString());
     if (params.maxPrice !== undefined) queryParams.append('MaxPrice', params.maxPrice.toString());

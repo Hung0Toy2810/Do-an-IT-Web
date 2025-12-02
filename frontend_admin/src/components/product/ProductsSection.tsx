@@ -26,13 +26,14 @@ export const ProductsSection = ({
   onPriceSortChange,
   onAddProduct,
 }: ProductsSectionProps) => {
-  // 1. Lấy danh sách ID + totalCount từ API subcategory
+  // 1. Lấy danh sách ID + totalCount từ API search-all
   const { data: listResponse, isLoading: listLoading } = useQuery({
-    queryKey: ['products-by-subcategory-ids', selectedSub?.slug, selectedBrand, priceSort],
+    queryKey: ['products-search-all', selectedSub?.slug, selectedBrand, priceSort],
     queryFn: async () => {
       if (!selectedSub) return null;
 
-      return api.getProductsBySubCategory(selectedSub.slug, {
+      return api.searchAll({
+        subCategorySlug: selectedSub.slug,
         brand: selectedBrand || undefined,
         sortByPriceAscending:
           priceSort === 'asc' ? true : priceSort === 'desc' ? false : undefined,

@@ -129,7 +129,7 @@ namespace Backend.Service.Stock
             _dbContext.ShipmentBatches.Update(batch);
             await _dbContext.SaveChangesAsync();
 
-            _logger.LogWarning("🔄 HOÀN HÀNG: Nhập {Qty} vào lô {BatchCode} (DetailId: {DetailId}, Remaining: {Remaining})", 
+            _logger.LogWarning(" HOÀN HÀNG: Nhập {Qty} vào lô {BatchCode} (DetailId: {DetailId}, Remaining: {Remaining})", 
                 detail.Quantity, batch.BatchCode, invoiceDetailId, batch.RemainingQuantity);
 
             return true;

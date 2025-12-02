@@ -3,7 +3,7 @@ using Backend.Model.Entity;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-
+using Backend.Service.Checkout;
 namespace Backend.Repository.InvoiceRepository
 {
     public interface IInvoiceRepository
@@ -17,5 +17,10 @@ namespace Backend.Repository.InvoiceRepository
         Task<Invoice?> GetInvoiceByTrackingCodeAsync(string trackingCode);
         Task<bool> UpdateTrackingCodeAsync(long invoiceId, string trackingCode);
         Task<List<Invoice>> GetInvoicesByStatusAsync(int status);
+        Task<(List<Invoice> Invoices, int TotalCount)> GetAllInvoicesForAdminAsync(
+            int page = 1,
+            int pageSize = 20,
+            InvoiceStatus? status = null,
+            string? search = null);
     }
 }

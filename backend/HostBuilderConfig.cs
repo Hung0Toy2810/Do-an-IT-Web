@@ -33,6 +33,10 @@ using Backend.Service.Shipping;
 using Backend.Service;
 using Backend.Service.Checkout;
 using Backend.Services;
+// IInvoiceService, InvoiceService
+using Backend.Service.Invoices;
+using Backend.Service.CustomerAdmin;
+using Backend.Service.AdministratorAdmin;
 namespace Backend 
 {
     public static class HostBuilderConfig
@@ -197,6 +201,9 @@ namespace Backend
 
                     //ShippingSimulationService : BackgroundService
                     services.AddHostedService<ShippingSimulationService>();
+                    services.AddScoped<IInvoiceService, InvoiceService>();
+                    services.AddScoped<ICustomerAdminService, CustomerAdminService>();
+                    services.AddScoped<IAdministratorAdminService, AdministratorAdminService>();
 
                 })
                 .ConfigureWebHostDefaults(webBuilder =>

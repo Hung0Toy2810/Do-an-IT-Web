@@ -235,7 +235,6 @@ namespace Backend.Service.Product
                 };
             }
 
-            // 🔄 ĐỔI: _productDocumentService → _productSearchService
             var products = await _productSearchService
                 .GetProductsByIdsWithBrandFilterAsync(
                     productIds, 
@@ -636,57 +635,90 @@ namespace Backend.Service.Product
         // Trong ProductService.cs - Thêm using Microsoft.Extensions.Logging; nếu cần ILogger
         public async Task<ProductSearchResultDto> SearchAllProductsAsync(ProductSearchAllRequestDto request)
         {
-            var logger = _logger ?? NullLogger<ProductService>.Instance;
-
-            var rawKeyword = request.Keyword?.Trim();
-            logger.LogInformation($"[DEBUG] Raw keyword: '{rawKeyword}'");
-
-            if (string.IsNullOrWhiteSpace(rawKeyword))
+            // Validate SubCategorySlug
+            if (string.IsNullOrWhiteSpace(request.SubCategorySlug))
             {
-                var everyProductIds = await _productRepository.GetAllProductIdsAsync();
-                logger.LogInformation($"[DEBUG] No keyword: everyProductIds count = {everyProductIds.Count}");
-                return await FilterAndSortAsync(everyProductIds, request);
-            }
-
-            var words = rawKeyword.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                                .Select(w => w.ToLower())
-                                .ToList();
-            logger.LogInformation($"[DEBUG] Words from keyword: [{string.Join(", ", words)}]");
-
-            // --- SQL: subcategory slug ---
-            var sqlProductIds = new List<long>();
-            foreach (var word in words)
-            {
-                var subCatId = await _productRepository.GetSubCategoryIdBySlugAsync(word);
-                logger.LogInformation($"[DEBUG] Word '{word}': subCatId = {subCatId?.ToString() ?? "NULL"}");
-                if (subCatId.HasValue)
+                return new ProductSearchResultDto
                 {
-                    var ids = await _productRepository.GetProductIdsBySubCategorySlugAsync(word);
-                    logger.LogInformation($"[DEBUG] Word '{word}': found {ids.Count} product IDs");
-                    sqlProductIds.AddRange(ids);
-                }
+                    ProductIds = new List<long>(),
+                    TotalCount = 0
+                };
             }
-            sqlProductIds = sqlProductIds.Distinct().ToList();
-            logger.LogInformation($"[DEBUG] Final sqlProductIds count = {sqlProductIds.Count}");
 
-            // --- MongoDB: text search ---
-            var mongoProductIds = await _productSearchService.SearchAllProductIdsByKeywordAsync(rawKeyword);
-            logger.LogInformation($"[DEBUG] mongoProductIds count = {mongoProductIds.Count}");
+            var subCategoryId = await _productRepository.GetSubCategoryIdBySlugAsync(request.SubCategorySlug);
+            if (!subCategoryId.HasValue)
+            {
+                throw new Backend.Exceptions.NotFoundException(
+                    $"Không tìm thấy danh mục phụ với slug '{request.SubCategorySlug}'");
+            }
 
-            // --- UNION (THAY ĐỔI CHÍNH) ---
-            var finalProductIds = new HashSet<long>(sqlProductIds);
-            finalProductIds.UnionWith(mongoProductIds);
-            var allProductIdsList = finalProductIds.ToList();
-            logger.LogInformation($"[DEBUG] Final productIds after UNION count = {allProductIdsList.Count}");
+            // ✅ DÙNG METHOD CŨ - Giống customer API
+            var productIds = await _productRepository
+                .GetProductIdsBySubCategorySlugAsync(request.SubCategorySlug);
 
-            return await FilterAndSortAsync(allProductIdsList, request);
+            if (productIds.Count == 0)
+            {
+                return new ProductSearchResultDto
+                {
+                    ProductIds = new List<long>(),
+                    TotalCount = 0
+                };
+            }
+
+            // ✅ KHÁC API CŨ: Dùng SearchAllProductsWithFiltersAsync thay vì GetProductsByIdsWithBrandFilterAsync
+            // Method này KHÔNG filter IsDiscontinued trong MongoDB
+            var products = await _productSearchService
+                .SearchAllProductsWithFiltersAsync(
+                    productIds, 
+                    request.Brand, 
+                    request.MinPrice, 
+                    request.MaxPrice);
+
+            if (products.Count == 0)
+            {
+                return new ProductSearchResultDto
+                {
+                    ProductIds = new List<long>(),
+                    TotalCount = 0
+                };
+            }
+
+            // ✅ GIỐNG API CŨ: Logic tính MinPrice và sort
+            var productsWithMinPrice = products
+                .Select(p => new ProductWithMinPrice
+                {
+                    ProductId = p.Id,
+                    MinPrice = p.Variants.Any() 
+                        ? p.Variants.Min(v => v.DiscountedPrice) 
+                        : decimal.MaxValue
+                })
+                .ToList();
+
+            List<long> sortedProductIds;
+
+            if (request.SortByPriceAscending.HasValue)
+            {
+                sortedProductIds = request.SortByPriceAscending.Value
+                    ? productsWithMinPrice.OrderBy(p => p.MinPrice).Select(p => p.ProductId).ToList()
+                    : productsWithMinPrice.OrderByDescending(p => p.MinPrice).Select(p => p.ProductId).ToList();
+            }
+            else
+            {
+                sortedProductIds = productsWithMinPrice.Select(p => p.ProductId).ToList();
+            }
+
+            return new ProductSearchResultDto
+            {
+                ProductIds = sortedProductIds,
+                TotalCount = sortedProductIds.Count
+            };
         }
 
         // ================================================================
         // 2. Helper method: FilterAndSortAsync (đã đổi tên tham số)
         // ================================================================
         private async Task<ProductSearchResultDto> FilterAndSortAsync(
-            IReadOnlyCollection<long> productIds,          // ← ĐÃ ĐỔI TÊN
+            IReadOnlyCollection<long> productIds,          
             ProductSearchAllRequestDto request)
         {
             if (!productIds.Any())

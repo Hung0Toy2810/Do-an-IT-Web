@@ -95,7 +95,8 @@ namespace Backend.Service.Product
             decimal? minPrice,
             decimal? maxPrice)
         {
-            return await _repository.SearchAllProductsWithFiltersAsync(productIds, brand, minPrice, maxPrice);
+            return await _repository.SearchAllProductsWithFiltersAsync(
+                productIds, brand, minPrice, maxPrice);
         }
     }
 }
